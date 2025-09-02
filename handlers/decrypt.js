@@ -51,7 +51,7 @@ async function decryptMdHandler(c) {
                 if (process.env.BUNDLED) {
                     revokedPath = path.join(__dirname, '.', 'revokeds.json');
                 } else {
-                    revokedPath = path.join(__dirname, '..', 'json/revokeds.json');
+                    revokedPath = path.join(__dirname, '.', 'json/revokeds.json');
                 }
                 const revokedData = JSON.parse(fs.readFileSync(revokedPath, "utf-8"));
                 if (revokedData.revokeds.includes(token)) throw errorResponse("Revoked token", 403);

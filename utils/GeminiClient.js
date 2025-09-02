@@ -68,43 +68,57 @@ async function rotate1psidts(cookies, proxy = null) {
   }
 
   if (shouldRotate) {
-    try {
-      const response = await axios.post(ENDPOINTS.ROTATE_COOKIES, '[000,"-0000000000000000000"]', {
-        headers: HEADERS.ROTATE_COOKIES,
-        proxy: proxy
-      });
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        const response = await axios.post(ENDPOINTS.ROTATE_COOKIES, JSON.stringify([0, "-0000000000000000000"]), {
+          headers: {
+            ...HEADERS.ROTATE_COOKIES,
+            Cookie: Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ')
+          },
+          proxy: proxy
+        });
 
-      if (response.status === 401) {
-        throw new Error('Authentication failed - invalid cookies');
-      }
+        if (response.status === 401) {
+          throw new Error('Authentication failed - invalid cookies');
+        }
 
-      if (response.status !== 200) {
-        throw new Error(`Cookie rotation failed with status ${response.status}`);
-      }
+        if (response.status !== 200) {
+          throw new Error(`Cookie rotation failed with status ${response.status}`);
+        }
 
-      // Extract new __Secure-1PSIDTS from response cookies
-      const setCookies = response.headers['set-cookie'] || [];
-      let new1psidts = null;
+        // Extract new __Secure-1PSIDTS from response cookies
+        const setCookies = response.headers['set-cookie'] || [];
+        let new1psidts = null;
 
-      for (const cookie of setCookies) {
-        if (cookie.includes('__Secure-1PSIDTS=')) {
-          const match = cookie.match(/__Secure-1PSIDTS=([^;]+)/);
-          if (match) {
-            new1psidts = match[1];
-            break;
+        for (const cookie of setCookies) {
+          if (cookie.includes('__Secure-1PSIDTS=')) {
+            const match = cookie.match(/__Secure-1PSIDTS=([^;]+)/);
+            if (match) {
+              new1psidts = match[1];
+              break;
+            }
           }
         }
-      }
 
-      if (new1psidts) {
-        // Cache the new cookie
-        fs.writeFileSync(cacheFile, new1psidts);
-        return new1psidts;
-      }
+        if (new1psidts) {
+          // Cache the new cookie
+          fs.writeFileSync(cacheFile, new1psidts);
+          return new1psidts;
+        } else {
+          throw new Error('No new __Secure-1PSIDTS found in response');
+        }
 
-    } catch (error) {
-      console.error('Cookie rotation failed:', error.message);
-      throw error;
+      } catch (error) {
+        console.error(`Cookie rotation failed (attempt ${4 - retries}/3):`, error.message);
+        retries--;
+        if (retries > 0) {
+          // Wait 1 second before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } else {
+          throw error;
+        }
+      }
     }
   } else {
     // Use cached value
@@ -233,18 +247,33 @@ class GeminiClient {
       'f.req': outerJson
     };
 
-    const response = await axios.post(ENDPOINTS.GENERATE, new URLSearchParams(data), {
-      headers: {
-        ...HEADERS.GEMINI,
-        ...modelObj.header,
-        Cookie: Object.entries(this.cookies).map(([k, v]) => `${k}=${v}`).join('; ')
-      },
-      proxy: this.proxy,
-      timeout: this.timeout
-    });
+    let response;
+    let retries = 1;
+    while (retries >= 0) {
+      try {
+        response = await axios.post(ENDPOINTS.GENERATE, new URLSearchParams(data), {
+          headers: {
+            ...HEADERS.GEMINI,
+            ...modelObj.header,
+            Cookie: Object.entries(this.cookies).map(([k, v]) => `${k}=${v}`).join('; ')
+          },
+          proxy: this.proxy,
+          timeout: this.timeout
+        });
 
-    if (response.status !== 200) {
-      throw new Error(`Request failed with status ${response.status}`);
+        if (response.status !== 200) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+        break; // Success, exit loop
+      } catch (error) {
+        if (error.message.includes('status code 400') && retries > 0) {
+          console.log('Request failed with 400, attempting to re-initialize client...');
+          await this.init(true); // Re-init with verbose
+          retries--;
+        } else {
+          throw error;
+        }
+      }
     }
 
     // Parse response following Python implementation
