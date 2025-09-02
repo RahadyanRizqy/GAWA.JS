@@ -138,7 +138,7 @@ class GeminiClient {
     this.proxy = proxy;
     this.running = false;
     this.accessToken = null;
-    this.timeout = 30000; // 30s
+    this.timeout = 120000; // 30s
     this.autoClose = false;
     this.closeDelay = 300000; // 5min
     this.autoRefresh = true;
