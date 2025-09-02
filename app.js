@@ -8,6 +8,7 @@ const fs = require('fs');
 const config = require('./config.env.js');
 const resolveFile = require('./utils/path-resolve.js');
 const { setupRoutes } = require('./web/routes.js');
+const path = require('path');
 
 // Function to extract cookies from cookies.txt
 function getCookiesFromFile() {
@@ -75,7 +76,7 @@ app.use('/chat/*', async (c, next) => {
 
         // Check revoked tokens
         let revokedPath;
-        if (process.env.BUILD) {
+        if (process.env.BUNDLED) {
             revokedPath = path.join(__dirname, '.', 'revokeds.json');
         } else {
             revokedPath = path.join(__dirname, '..', 'json/revokeds.json');
