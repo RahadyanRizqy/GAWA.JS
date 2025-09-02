@@ -1,3 +1,4 @@
 node_modules/
 utils/token.js
 .env
+json/
