@@ -1,6 +1,6 @@
-const { rootHandler } = require('./handlers/root');
-const { chatHandler } = require('./handlers/chat');
-const { decryptMdHandler } = require('./handlers/decrypt');
+const { rootHandler } = require('../handlers/root.js');
+const { chatHandler } = require('../handlers/chat.js');
+const { decryptMdHandler } = require('../handlers/decrypt.js');
 
 function setupRoutes(app) {
     // Root endpoints

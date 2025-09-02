@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const resolveFile = require('./path-resolve');
+const resolveFile = require('./path-resolve.js');
 
 function renderHtml(c, filename) {
     const filePath = resolveFile('public/'+filename);

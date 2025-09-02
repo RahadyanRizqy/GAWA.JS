@@ -1,12 +1,12 @@
 const { Hono } = require('hono');
 const { serve } = require('@hono/node-server');
 const jwt = require('jsonwebtoken');
-const GeminiClient = require('./utils/GeminiClient');
-const errorResponse = require('./utils/error');
+const GeminiClient = require('./utils/GeminiClient.js');
+const errorResponse = require('./utils/error.js');
 const fs = require('fs');
-const config = require('./config.env');
-const resolveFile = require('./utils/path-resolve');
-const { setupRoutes } = require('./web/routes');
+const config = require('./config.env.js');
+const resolveFile = require('./utils/path-resolve.js');
+const { setupRoutes } = require('./web/routes.js');
 
 // Function to extract cookies from cookies.json
 function getCookiesFromFile() {

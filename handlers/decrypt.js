@@ -1,10 +1,10 @@
-const { decryptMd } = require('../utils/metadata');
-const errorResponse = require('../utils/error');
+const { decryptMd } = require('../utils/metadata.js');
+const errorResponse = require('../utils/error.js');
 const jwt = require('jsonwebtoken');
 const fs = require("fs");
 const path = require("path");
-const config = require('../config.env');
-const resolveFile = require('../utils/path-resolve');
+const config = require('../config.env.js');
+const resolveFile = require('../utils/path-resolve.js');
 
 async function decryptMdHandler(c) {
     if (c.req.method === 'GET') {

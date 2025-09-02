@@ -1,11 +1,11 @@
-const GeminiClient = require('../utils/GeminiClient');
-const { encryptMd, decryptMd, processChatMetadata } = require('../utils/metadata');
-const errorResponse = require('../utils/error');
+const GeminiClient = require('../utils/GeminiClient.js');
+const { encryptMd, decryptMd, processChatMetadata } = require('../utils/metadata.js');
+const errorResponse = require('../utils/error.js');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
-const config = require('../config.env');
-const resolveFile = require('../utils/path-resolve');
+const config = require('../config.env.js');
+const resolveFile = require('../utils/path-resolve.js');
 
 // Shared chat handler function
 async function handleChat(c, gemId) {
