@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="https://img.icons8.com/?size=100&id=eoxMN35Z6JKg&format=png&color=000000">
+    <title>Gemini AI Wrapper API</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            font-family: monospace;
+            font-size: 1.2rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background: #2d2d2d;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 90%;
+            border: 1px solid #404040;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: #ffffff;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            margin: 1rem 0;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #e0e0e0;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            font-family: monospace;
+            font-size: 1rem;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        button {
+            background: #4ade80;
+            color: #ffffff;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            margin-top: 1rem;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #22c55e;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .result {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: #1a1a1a;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            border: 1px solid #404040;
+            text-align: left;
+            color: #e0e0e0;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                font-size: 1.3rem;
+            }
+            h1 {
+                font-size: 1.9rem;
+            }
+            .container {
+                padding: 1.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                font-size: 1.4rem;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔓 Decrypt Chat Metadata</h1>
+        <form id="decryptForm">
+            <div class="form-group">
+                <label for="metadata">Encrypted Metadata:</label>
+                <textarea id="metadata" name="metadata" rows="4" placeholder="Paste your encrypted metadata here..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="token">JWT Token:</label>
+                <input type="text" id="token" name="token" placeholder="Your JWT token">
+            </div>
+            <button type="submit">Decrypt</button>
+        </form>
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        document.getElementById('decryptForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const button = form.querySelector('button');
+            const resultDiv = document.getElementById('result');
+
+            // Show loading
+            button.disabled = true;
+            button.innerHTML = '<span class="loading"></span>Decrypting...';
+
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('/decryptmd', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        metadata: formData.get('metadata'),
+                        token: formData.get('token')
+                    })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = '<strong>✅ Decrypted successfully:</strong> ' + JSON.stringify(data.decryptedMetadata, null, 2);
+                    resultDiv.style.borderColor = '#4ade80';
+                } else {
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = '<strong>❌ Error:</strong> ' + (data.error?.message || 'Unknown error');
+                    resultDiv.style.borderColor = '#ef4444';
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = '<strong>❌ Network Error:</strong> ' + error.message;
+                resultDiv.style.borderColor = '#ef4444';
+            } finally {
+                // Reset button
+                button.disabled = false;
+                button.innerHTML = 'Decrypt';
+            }
+        });
+    </script>
+</body>
+</html>

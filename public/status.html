@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="https://img.icons8.com/?size=100&id=eoxMN35Z6JKg&format=png&color=000000">
+    <title>Gemini AI Wrapper API</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            font-family: monospace;
+            font-size: 1.2rem;
+            line-height: 1.6;
+        }
+
+        .status-container {
+            text-align: center;
+            padding: 2rem;
+            background: #2d2d2d;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+            border: 1px solid #404040;
+        }
+
+        .status-circle {
+            width: 12px;
+            height: 12px;
+            background-color: #ff0000; /* default offline merah */
+            border-radius: 50%;
+        }
+
+        .online-circle {
+            background-color: #4ade80; /* hijau online */
+            box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+        }
+
+        .status-message {
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+        }
+
+        .online-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+
+        .online {
+            color: #4ade80;
+        }
+
+        .uptime {
+            font-size: 1rem;
+            color: #b0b0b0;
+            margin-bottom: 1.5rem;
+        }
+
+        .copyright {
+            font-size: 1rem;
+            color: #888;
+            border-top: 1px solid #404040;
+            padding-top: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                font-size: 1.3rem;
+            }
+            .status-message {
+                font-size: 1.4rem;
+            }
+            .online-status {
+                font-size: 0.9rem;
+            }
+            .uptime {
+                font-size: 1.1rem;
+            }
+            .copyright {
+                font-size: 0.9rem;
+            }
+            .status-container {
+                padding: 1.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                font-size: 1.3rem;
+            }
+            .status-message {
+                font-size: 1.4rem;
+            }
+            .online-status {
+                font-size: 0.9rem;
+            }
+            .uptime {
+                font-size: 1.1rem;
+            }
+            .copyright {
+                font-size: 0.9rem;
+            }
+            .status-container {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="status-container">
+        <div class="status-message">Gemini AI Wrapper API</div>
+        <div class="online-status">
+            <div id="circle" class="status-circle"></div>
+            <span id="status-text">Offline</span>
+        </div>
+        <div class="copyright">© rahadyanrizqy 2025</div>
+    </div>
+
+    <script>
+        async function checkStatus() {
+            try {
+                const res = await fetch("/", { method: "POST" });
+                if (res.ok) {
+                    document.getElementById("circle").classList.add("online-circle");
+                    document.getElementById("status-text").textContent = "Online";
+                    document.getElementById("status-text").classList.add("online");
+                }
+            } catch (e) {
+                console.error("Status check failed:", e);
+            }
+        }
+        checkStatus();
+    </script>
+</body>
+</html>

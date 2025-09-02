@@ -1,0 +1,25 @@
+{
+  "name": "gemini-js-client",
+  "version": "1.0.0",
+  "description": "JavaScript version of GeminiClient mimicking Python gemini_webapi",
+  "main": "app.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node app.js",
+    "chat": "node chat.js",
+    "session": "node session.js --interactive",
+    "session-simple": "node session.js --simple",
+    "sendbase64": "node sendbase64.js --example",
+    "test-autorefresh": "node test-autorefresh.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.1",
+    "axios": "^1.6.0",
+    "dotenv": "^17.2.1",
+    "form-data": "^4.0.0",
+    "hono": "^4.9.5",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "author": "",
+  "license": "ISC"
+}
