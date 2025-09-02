@@ -47,7 +47,7 @@ const { secure1psid, secure1psidts } = getCookiesFromFile();
 const client = new GeminiClient(secure1psid, secure1psidts);
 
 console.log('Initializing GeminiClient...');
-client.init().then(() => {
+client.init(300000, true).then(() => {
     console.log('GeminiClient initialized successfully');
 }).catch((error) => {
     console.error('Failed to initialize GeminiClient:', error);

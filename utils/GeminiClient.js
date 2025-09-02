@@ -138,7 +138,7 @@ class GeminiClient {
     this.proxy = proxy;
     this.running = false;
     this.accessToken = null;
-    this.timeout = 120000; // 30s
+    this.timeout = 30000; // 30s
     this.autoClose = false;
     this.closeDelay = 300000; // 5min
     this.autoRefresh = true;
@@ -153,12 +153,14 @@ class GeminiClient {
     }
   }
 
-  async init(verbose = true) {
+  async init(timeout=this.timeout, verbose = true) {
+    timeout = timeout ?? this.timeout;
     try {
       const { accessToken, validCookies } = await this.getAccessToken(verbose);
       this.accessToken = accessToken;
       this.cookies = validCookies;
       this.running = true;
+      this.timeout = timeout;
 
       // Start auto-refresh if enabled
       if (this.autoRefresh) {
