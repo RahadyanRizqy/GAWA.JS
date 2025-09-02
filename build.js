@@ -5,7 +5,7 @@ esbuild.build({
     entryPoints: ["app.js"],
     bundle: true,
     platform: "node",
-    outfile: "dist/app.js",
+    outfile: "dist/index.js",
     plugins: [inlineImport({ filter: /\.html$/ })], // ⬅️ semua .html jadi string
     define: {
         "process.env.BUNDLED": JSON.stringify(true), // 👈 tambahin ini

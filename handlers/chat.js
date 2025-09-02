@@ -22,7 +22,12 @@ async function handleChat(c, gemId) {
         // Handle file upload
         let files = [];
         if (file) {
-            const tempDir = path.join(__dirname, '..', 'temp');
+            let tempDir;
+            if (process.env.BUNDLED) {
+                tempDir = path.join(__dirname, '.', 'temp');
+            } else {
+                tempDir = path.join(__dirname, '..', 'temp');
+            }
             if (!fs.existsSync(tempDir)) {
                 fs.mkdirSync(tempDir, { recursive: true });
             }

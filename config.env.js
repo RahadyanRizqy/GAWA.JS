@@ -1,9 +1,10 @@
 let config = {};
+const path = require('path');
+
 
 // Node.js style
 if (typeof process !== 'undefined' && process.env) {
-    const resolveFile = require('./utils/path-resolve');
-    require('dotenv').config({ path: resolveFile('.env')});
+    require('dotenv').config({ path: path.join(__dirname, '.', '.env')});
     config.SECRET_KEY = process.env.SECRET_KEY;
     config.PORT = process.env.PORT;
 }

@@ -12,7 +12,8 @@ const { setupRoutes } = require('./web/routes.js');
 // Function to extract cookies from cookies.txt
 function getCookiesFromFile() {
     try {
-        const cookiesPath = resolveFile('cookies.txt');
+        let cookiesPath;
+        cookiesPath = path.join(__dirname, '.', 'cookies.txt');
         const cookieHeader = fs.readFileSync(cookiesPath, 'utf-8').trim();
 
         let secure1psid = null;
@@ -73,7 +74,12 @@ app.use('/chat/*', async (c, next) => {
         const decoded = jwt.verify(token, config.SECRET_KEY);
 
         // Check revoked tokens
-        const revokedPath = resolveFile('json/revokeds.json');
+        let revokedPath;
+        if (process.env.BUILD) {
+            revokedPath = path.join(__dirname, '.', 'revokeds.json');
+        } else {
+            revokedPath = path.join(__dirname, '..', 'json/revokeds.json');
+        }
         const revokedData = JSON.parse(fs.readFileSync(revokedPath, 'utf-8'));
         if (revokedData.revokeds.includes(token)) throw errorResponse('Revoked token', 403);
 

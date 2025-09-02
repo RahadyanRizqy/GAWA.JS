@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-require('dotenv').config();
 let statusHtml;
 if (process.env.BUNDLED) {
     statusHtml = require("../public/status.html"); // hasil plugin esbuild
