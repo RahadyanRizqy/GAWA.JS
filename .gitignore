@@ -4,3 +4,4 @@ utils/token.js
 json/
 cookies.txt
 dist/
+unused/

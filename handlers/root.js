@@ -1,14 +1,19 @@
 const fs = require('fs');
 const path = require('path');
-const statusHtml = require('../public/status.html');
+
+require('dotenv').config();
+let statusHtml;
+if (process.env.BUNDLED) {
+    statusHtml = require("../public/status.html"); // hasil plugin esbuild
+} else {
+    const htmlPath = path.join(__dirname, "..", "public", "status.html");
+    statusHtml = fs.readFileSync(htmlPath, "utf-8");
+}
 
 async function rootHandler(c) {
     if (c.req.method === 'GET') {
         // Render status.html
         try {
-            // const htmlPath = path.join(__dirname, '..', 'public', 'status.html');
-            // const html = fs.readFileSync(htmlPath, 'utf-8');
-            // return c.html(html);
             return c.html(statusHtml);
         } catch (error) {
             return c.text('Status page not found', 404);

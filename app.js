@@ -1,5 +1,6 @@
 const { Hono } = require('hono');
 const { serve } = require('@hono/node-server');
+const { logger } = require('hono/logger');
 const jwt = require('jsonwebtoken');
 const GeminiClient = require('./utils/GeminiClient.js');
 const errorResponse = require('./utils/error.js');
@@ -51,6 +52,8 @@ client.init().then(() => {
 });
 
 const app = new Hono();
+
+app.use('*', logger()); // logger dulu
 
 // Middleware to attach client
 app.use('*', async (c, next) => {
