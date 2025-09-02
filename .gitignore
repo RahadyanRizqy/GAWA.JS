@@ -3,3 +3,4 @@ utils/token.js
 .env
 json/
 cookies.txt
+dist/

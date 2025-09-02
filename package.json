@@ -23,6 +23,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "esbuild": "^0.25.9"
+    "esbuild": "^0.25.9",
+    "esbuild-plugin-inline-import": "^1.1.0"
   }
 }

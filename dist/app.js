@@ -2799,6 +2799,122 @@ var require_dist = __commonJS({
   }
 });
 
+// node_modules/hono/dist/cjs/utils/color.js
+var require_color = __commonJS({
+  "node_modules/hono/dist/cjs/utils/color.js"(exports2, module2) {
+    "use strict";
+    var __defProp = Object.defineProperty;
+    var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+    var __getOwnPropNames2 = Object.getOwnPropertyNames;
+    var __hasOwnProp = Object.prototype.hasOwnProperty;
+    var __export = (target, all) => {
+      for (var name in all)
+        __defProp(target, name, { get: all[name], enumerable: true });
+    };
+    var __copyProps = (to, from, except, desc) => {
+      if (from && typeof from === "object" || typeof from === "function") {
+        for (let key of __getOwnPropNames2(from))
+          if (!__hasOwnProp.call(to, key) && key !== except)
+            __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+      }
+      return to;
+    };
+    var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+    var color_exports = {};
+    __export(color_exports, {
+      getColorEnabled: () => getColorEnabled,
+      getColorEnabledAsync: () => getColorEnabledAsync
+    });
+    module2.exports = __toCommonJS(color_exports);
+    function getColorEnabled() {
+      const { process: process2, Deno } = globalThis;
+      const isNoColor = typeof Deno?.noColor === "boolean" ? Deno.noColor : process2 !== void 0 ? "NO_COLOR" in process2?.env : false;
+      return !isNoColor;
+    }
+    async function getColorEnabledAsync() {
+      const { navigator: navigator2 } = globalThis;
+      const cfWorkers = "cloudflare:workers";
+      const isNoColor = navigator2 !== void 0 && navigator2.userAgent === "Cloudflare-Workers" ? await (async () => {
+        try {
+          return "NO_COLOR" in ((await import(cfWorkers)).env ?? {});
+        } catch {
+          return false;
+        }
+      })() : !getColorEnabled();
+      return !isNoColor;
+    }
+  }
+});
+
+// node_modules/hono/dist/cjs/middleware/logger/index.js
+var require_logger = __commonJS({
+  "node_modules/hono/dist/cjs/middleware/logger/index.js"(exports2, module2) {
+    "use strict";
+    var __defProp = Object.defineProperty;
+    var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+    var __getOwnPropNames2 = Object.getOwnPropertyNames;
+    var __hasOwnProp = Object.prototype.hasOwnProperty;
+    var __export = (target, all) => {
+      for (var name in all)
+        __defProp(target, name, { get: all[name], enumerable: true });
+    };
+    var __copyProps = (to, from, except, desc) => {
+      if (from && typeof from === "object" || typeof from === "function") {
+        for (let key of __getOwnPropNames2(from))
+          if (!__hasOwnProp.call(to, key) && key !== except)
+            __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+      }
+      return to;
+    };
+    var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+    var logger_exports = {};
+    __export(logger_exports, {
+      logger: () => logger2
+    });
+    module2.exports = __toCommonJS(logger_exports);
+    var import_color = require_color();
+    var humanize = (times) => {
+      const [delimiter, separator] = [",", "."];
+      const orderTimes = times.map((v) => v.replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1" + delimiter));
+      return orderTimes.join(separator);
+    };
+    var time = (start) => {
+      const delta = Date.now() - start;
+      return humanize([delta < 1e3 ? delta + "ms" : Math.round(delta / 1e3) + "s"]);
+    };
+    var colorStatus = async (status) => {
+      const colorEnabled = await (0, import_color.getColorEnabledAsync)();
+      if (colorEnabled) {
+        switch (status / 100 | 0) {
+          case 5:
+            return `\x1B[31m${status}\x1B[0m`;
+          case 4:
+            return `\x1B[33m${status}\x1B[0m`;
+          case 3:
+            return `\x1B[36m${status}\x1B[0m`;
+          case 2:
+            return `\x1B[32m${status}\x1B[0m`;
+        }
+      }
+      return `${status}`;
+    };
+    async function log(fn, prefix, method, path, status = 0, elapsed) {
+      const out = prefix === "<--" ? `${prefix} ${method} ${path}` : `${prefix} ${method} ${path} ${await colorStatus(status)} ${elapsed}`;
+      fn(out);
+    }
+    var logger2 = (fn = console.log) => {
+      return async function logger22(c, next) {
+        const { method, url } = c.req;
+        const path = url.slice(url.indexOf("/", 8));
+        await log(fn, "<--", method, path);
+        const start = Date.now();
+        await next();
+        await log(fn, "-->", method, path, c.res.status, time(start));
+      };
+    };
+  }
+});
+
 // node_modules/safe-buffer/index.js
 var require_safe_buffer = __commonJS({
   "node_modules/safe-buffer/index.js"(exports2, module2) {
@@ -21491,17 +21607,30 @@ var require_config_env = __commonJS({
   }
 });
 
+// _k1jnhffq8:E:\Projects\Coding\Backend\gawa\public\status.html
+var require_status = __commonJS({
+  "_k1jnhffq8:E:\\Projects\\Coding\\Backend\\gawa\\public\\status.html"(exports2, module2) {
+    module2.exports = '<!DOCTYPE html>\r\n<html lang="en">\r\n<head>\r\n    <meta charset="UTF-8">\r\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\r\n    <link rel="icon" type="image/png" href="https://img.icons8.com/?size=100&id=eoxMN35Z6JKg&format=png&color=000000">\r\n    <title>Gemini AI Wrapper API</title>\r\n    <style>\r\n        body {\r\n            margin: 0;\r\n            height: 100vh;\r\n            display: flex;\r\n            justify-content: center;\r\n            align-items: center;\r\n            background-color: #1a1a1a;\r\n            color: #e0e0e0;\r\n            font-family: monospace;\r\n            font-size: 1.2rem;\r\n            line-height: 1.6;\r\n        }\r\n\r\n        .status-container {\r\n            text-align: center;\r\n            padding: 2rem;\r\n            background: #2d2d2d;\r\n            border-radius: 8px;\r\n            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);\r\n            max-width: 400px;\r\n            width: 90%;\r\n            border: 1px solid #404040;\r\n        }\r\n\r\n        .status-circle {\r\n            width: 12px;\r\n            height: 12px;\r\n            background-color: #ff0000; /* default offline merah */\r\n            border-radius: 50%;\r\n        }\r\n\r\n        .online-circle {\r\n            background-color: #4ade80; /* hijau online */\r\n            box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);\r\n        }\r\n\r\n        .status-message {\r\n            font-size: 1.5rem;\r\n            font-weight: 500;\r\n            color: #ffffff;\r\n            margin-bottom: 0.5rem;\r\n        }\r\n\r\n        .online-status {\r\n            display: flex;\r\n            align-items: center;\r\n            justify-content: center;\r\n            gap: 0.5rem;\r\n            font-size: 1rem;\r\n            font-weight: 500;\r\n            margin-bottom: 1rem;\r\n        }\r\n\r\n        .online {\r\n            color: #4ade80;\r\n        }\r\n\r\n        .uptime {\r\n            font-size: 1rem;\r\n            color: #b0b0b0;\r\n            margin-bottom: 1.5rem;\r\n        }\r\n\r\n        .copyright {\r\n            font-size: 1rem;\r\n            color: #888;\r\n            border-top: 1px solid #404040;\r\n            padding-top: 1rem;\r\n        }\r\n\r\n        @media (max-width: 768px) {\r\n            body {\r\n                font-size: 1.3rem;\r\n            }\r\n            .status-message {\r\n                font-size: 1.4rem;\r\n            }\r\n            .online-status {\r\n                font-size: 0.9rem;\r\n            }\r\n            .uptime {\r\n                font-size: 1.1rem;\r\n            }\r\n            .copyright {\r\n                font-size: 0.9rem;\r\n            }\r\n            .status-container {\r\n                padding: 1.5rem;\r\n            }\r\n        }\r\n\r\n        @media (max-width: 480px) {\r\n            body {\r\n                font-size: 1.3rem;\r\n            }\r\n            .status-message {\r\n                font-size: 1.4rem;\r\n            }\r\n            .online-status {\r\n                font-size: 0.9rem;\r\n            }\r\n            .uptime {\r\n                font-size: 1.1rem;\r\n            }\r\n            .copyright {\r\n                font-size: 0.9rem;\r\n            }\r\n            .status-container {\r\n                padding: 1.5rem;\r\n            }\r\n        }\r\n    </style>\r\n</head>\r\n<body>\r\n    <div class="status-container">\r\n        <div class="status-message">Gemini AI Wrapper API</div>\r\n        <div class="online-status">\r\n            <div id="circle" class="status-circle"></div>\r\n            <span id="status-text">Offline</span>\r\n        </div>\r\n        <div class="copyright">\xA9 rahadyanrizqy 2025</div>\r\n    </div>\r\n\r\n    <script>\r\n        async function checkStatus() {\r\n            try {\r\n                const res = await fetch("/", { method: "POST" });\r\n                if (res.ok) {\r\n                    document.getElementById("circle").classList.add("online-circle");\r\n                    document.getElementById("status-text").textContent = "Online";\r\n                    document.getElementById("status-text").classList.add("online");\r\n                }\r\n            } catch (e) {\r\n                console.error("Status check failed:", e);\r\n            }\r\n        }\r\n        checkStatus();\r\n    </script>\r\n</body>\r\n</html>';
+  }
+});
+
 // handlers/root.js
 var require_root = __commonJS({
   "handlers/root.js"(exports2, module2) {
     var fs2 = require("fs");
     var path = require("path");
+    require_main().config();
+    var statusHtml;
+    if (true) {
+      statusHtml = require_status();
+    } else {
+      const htmlPath = path.join(__dirname, "..", "public", "status.html");
+      statusHtml = fs2.readFileSync(htmlPath, "utf-8");
+    }
     async function rootHandler(c) {
       if (c.req.method === "GET") {
         try {
-          const htmlPath = path.join(__dirname, "..", "public", "status.html");
-          const html = fs2.readFileSync(htmlPath, "utf-8");
-          return c.html(html);
+          return c.html(statusHtml);
         } catch (error) {
           return c.text("Status page not found", 404);
         }
@@ -21644,8 +21773,217 @@ var require_chat = __commonJS({
   }
 });
 
-// handlers/decrypt.js
+// _k1jnhffq8:E:\Projects\Coding\Backend\gawa\public\decrypt.html
 var require_decrypt = __commonJS({
+  "_k1jnhffq8:E:\\Projects\\Coding\\Backend\\gawa\\public\\decrypt.html"(exports2, module2) {
+    module2.exports = `<!DOCTYPE html>\r
+<html lang="en">\r
+<head>\r
+    <meta charset="UTF-8">\r
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">\r
+    <link rel="icon" type="image/png" href="https://img.icons8.com/?size=100&id=eoxMN35Z6JKg&format=png&color=000000">\r
+    <title>Gemini AI Wrapper API</title>\r
+    <style>\r
+        body {\r
+            margin: 0;\r
+            height: 100vh;\r
+            display: flex;\r
+            justify-content: center;\r
+            align-items: center;\r
+            background-color: #1a1a1a;\r
+            color: #e0e0e0;\r
+            font-family: monospace;\r
+            font-size: 1.2rem;\r
+            line-height: 1.6;\r
+        }\r
+\r
+        .container {\r
+            text-align: center;\r
+            padding: 2rem;\r
+            background: #2d2d2d;\r
+            border-radius: 8px;\r
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);\r
+            max-width: 600px;\r
+            width: 90%;\r
+            border: 1px solid #404040;\r
+        }\r
+\r
+        h1 {\r
+            font-size: 1.8rem;\r
+            font-weight: 500;\r
+            color: #ffffff;\r
+            margin-bottom: 1rem;\r
+        }\r
+\r
+        .form-group {\r
+            margin: 1rem 0;\r
+            text-align: left;\r
+        }\r
+\r
+        label {\r
+            display: block;\r
+            margin-bottom: 0.5rem;\r
+            font-weight: 500;\r
+            color: #e0e0e0;\r
+        }\r
+\r
+        input, textarea {\r
+            width: 100%;\r
+            padding: 0.5rem;\r
+            border: 1px solid #555;\r
+            border-radius: 4px;\r
+            background-color: #1a1a1a;\r
+            color: #e0e0e0;\r
+            font-family: monospace;\r
+            font-size: 1rem;\r
+        }\r
+\r
+        textarea {\r
+            resize: vertical;\r
+            min-height: 100px;\r
+        }\r
+\r
+        button {\r
+            background: #4ade80;\r
+            color: #ffffff;\r
+            padding: 0.75rem 1.5rem;\r
+            border: none;\r
+            border-radius: 4px;\r
+            cursor: pointer;\r
+            font-size: 1rem;\r
+            font-weight: 500;\r
+            margin-top: 1rem;\r
+            transition: background 0.2s;\r
+        }\r
+\r
+        button:hover {\r
+            background: #22c55e;\r
+        }\r
+\r
+        button:disabled {\r
+            background: #666;\r
+            cursor: not-allowed;\r
+        }\r
+\r
+        .loading {\r
+            display: inline-block;\r
+            width: 16px;\r
+            height: 16px;\r
+            border: 2px solid #ffffff;\r
+            border-radius: 50%;\r
+            border-top-color: transparent;\r
+            animation: spin 1s ease-in-out infinite;\r
+            margin-right: 0.5rem;\r
+        }\r
+\r
+        @keyframes spin {\r
+            to { transform: rotate(360deg); }\r
+        }\r
+\r
+        .result {\r
+            margin-top: 1.5rem;\r
+            padding: 1rem;\r
+            background: #1a1a1a;\r
+            border-radius: 4px;\r
+            white-space: pre-wrap;\r
+            border: 1px solid #404040;\r
+            text-align: left;\r
+            color: #e0e0e0;\r
+        }\r
+\r
+        @media (max-width: 768px) {\r
+            body {\r
+                font-size: 1.3rem;\r
+            }\r
+            h1 {\r
+                font-size: 1.9rem;\r
+            }\r
+            .container {\r
+                padding: 1.5rem;\r
+            }\r
+        }\r
+\r
+        @media (max-width: 480px) {\r
+            body {\r
+                font-size: 1.4rem;\r
+            }\r
+            h1 {\r
+                font-size: 2rem;\r
+            }\r
+            .container {\r
+                padding: 1rem;\r
+            }\r
+        }\r
+    </style>\r
+</head>\r
+<body>\r
+    <div class="container">\r
+        <h1>\u{1F513} Decrypt Chat Metadata</h1>\r
+        <form id="decryptForm">\r
+            <div class="form-group">\r
+                <label for="metadata">Encrypted Metadata:</label>\r
+                <textarea id="metadata" name="metadata" rows="4" placeholder="Paste your encrypted metadata here..."></textarea>\r
+            </div>\r
+            <div class="form-group">\r
+                <label for="token">JWT Token:</label>\r
+                <input type="text" id="token" name="token" placeholder="Your JWT token">\r
+            </div>\r
+            <button type="submit">Decrypt</button>\r
+        </form>\r
+        <div id="result" class="result" style="display: none;"></div>\r
+    </div>\r
+\r
+    <script>\r
+        document.getElementById('decryptForm').addEventListener('submit', async (e) => {\r
+            e.preventDefault();\r
+            const form = e.target;\r
+            const button = form.querySelector('button');\r
+            const resultDiv = document.getElementById('result');\r
+\r
+            // Show loading\r
+            button.disabled = true;\r
+            button.innerHTML = '<span class="loading"></span>Decrypting...';\r
+\r
+            const formData = new FormData(form);\r
+\r
+            try {\r
+                const response = await fetch('/decryptmd', {\r
+                    method: 'POST',\r
+                    headers: { 'Content-Type': 'application/json' },\r
+                    body: JSON.stringify({\r
+                        metadata: formData.get('metadata'),\r
+                        token: formData.get('token')\r
+                    })\r
+                });\r
+\r
+                const data = await response.json();\r
+                if (response.ok) {\r
+                    resultDiv.style.display = 'block';\r
+                    resultDiv.innerHTML = '<strong>\u2705 Decrypted successfully:</strong> ' + JSON.stringify(data.decryptedMetadata, null, 2);\r
+                    resultDiv.style.borderColor = '#4ade80';\r
+                } else {\r
+                    resultDiv.style.display = 'block';\r
+                    resultDiv.innerHTML = '<strong>\u274C Error:</strong> ' + (data.error?.message || 'Unknown error');\r
+                    resultDiv.style.borderColor = '#ef4444';\r
+                }\r
+            } catch (error) {\r
+                resultDiv.style.display = 'block';\r
+                resultDiv.innerHTML = '<strong>\u274C Network Error:</strong> ' + error.message;\r
+                resultDiv.style.borderColor = '#ef4444';\r
+            } finally {\r
+                // Reset button\r
+                button.disabled = false;\r
+                button.innerHTML = 'Decrypt';\r
+            }\r
+        });\r
+    </script>\r
+</body>\r
+</html>`;
+  }
+});
+
+// handlers/decrypt.js
+var require_decrypt2 = __commonJS({
   "handlers/decrypt.js"(exports2, module2) {
     var { decryptMd } = require_metadata();
     var errorResponse2 = require_error();
@@ -21654,12 +21992,17 @@ var require_decrypt = __commonJS({
     var path = require("path");
     var config2 = require_config_env();
     var resolveFile2 = require_path_resolve();
+    var decryptHtml;
+    if (true) {
+      decryptHtml = require_decrypt();
+    } else {
+      const htmlPath = path.join(__dirname, "..", "public", "decrypt.html");
+      decryptHtml = fs2.readFileSync(htmlPath, "utf-8");
+    }
     async function decryptMdHandler(c) {
       if (c.req.method === "GET") {
         try {
-          const htmlPath = path.join(__dirname, "..", "public", "decrypt.html");
-          const html = fs2.readFileSync(htmlPath, "utf-8");
-          return c.html(html);
+          return c.html(decryptHtml);
         } catch (error) {
           return c.text("Decrypt page not found", 404);
         }
@@ -21714,7 +22057,7 @@ var require_routes = __commonJS({
   "web/routes.js"(exports2, module2) {
     var { rootHandler } = require_root();
     var { chatHandler } = require_chat();
-    var { decryptMdHandler } = require_decrypt();
+    var { decryptMdHandler } = require_decrypt2();
     function setupRoutes2(app2) {
       app2.get("/", rootHandler);
       app2.post("/", rootHandler);
@@ -21730,6 +22073,7 @@ var require_routes = __commonJS({
 // app.js
 var { Hono: Hono2 } = require_cjs();
 var { serve } = require_dist();
+var { logger } = require_logger();
 var jwt = require_jsonwebtoken();
 var GeminiClient = require_GeminiClient();
 var errorResponse = require_error();
@@ -21739,21 +22083,25 @@ var resolveFile = require_path_resolve();
 var { setupRoutes } = require_routes();
 function getCookiesFromFile() {
   try {
-    const cookiesPath = resolveFile("json/cookies.json");
-    const cookies = JSON.parse(fs.readFileSync(cookiesPath, "utf-8"));
+    const cookiesPath = resolveFile("cookies.txt");
+    const cookieHeader = fs.readFileSync(cookiesPath, "utf-8").trim();
     let secure1psid2 = null;
     let secure1psidts2 = null;
+    const cookies = cookieHeader.split(";").map((c) => c.trim());
     for (const cookie of cookies) {
-      if (cookie.name === "__Secure-1PSID") {
-        secure1psid2 = cookie.value;
-      }
-      if (cookie.name === "__Secure-1PSIDTS") {
-        secure1psidts2 = cookie.value;
+      const [name, value] = cookie.split("=");
+      if (name && value) {
+        if (name === "__Secure-1PSID") {
+          secure1psid2 = value;
+        }
+        if (name === "__Secure-1PSIDTS") {
+          secure1psidts2 = value;
+        }
       }
     }
     return { secure1psid: secure1psid2, secure1psidts: secure1psidts2 };
   } catch (error) {
-    console.error("Error reading cookies.json:", error);
+    console.error("Error reading cookies.txt:", error);
     return { secure1psid: null, secure1psidts: null };
   }
 }
@@ -21766,6 +22114,7 @@ client.init().then(() => {
   console.error("Failed to initialize GeminiClient:", error);
 });
 var app = new Hono2();
+app.use("*", logger());
 app.use("*", async (c, next) => {
   c.set("client", client);
   await next();

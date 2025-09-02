@@ -6,13 +6,16 @@ const path = require("path");
 const config = require('../config.env.js');
 const resolveFile = require('../utils/path-resolve.js');
 
+const decryptHtml = require('../public/decrypt.html');
+
 async function decryptMdHandler(c) {
     if (c.req.method === 'GET') {
         // Render decrypt.html
         try {
-            const htmlPath = path.join(__dirname, '..', 'public', 'decrypt.html');
-            const html = fs.readFileSync(htmlPath, 'utf-8');
-            return c.html(html);
+            // const htmlPath = path.join(__dirname, '..', 'public', 'decrypt.html');
+            // const html = fs.readFileSync(htmlPath, 'utf-8');
+            // return c.html(html);
+            return c.html(decryptHtml);
         } catch (error) {
             return c.text('Decrypt page not found', 404);
         }
