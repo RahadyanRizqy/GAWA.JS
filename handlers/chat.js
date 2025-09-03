@@ -79,6 +79,13 @@ async function handleChat(c, gemId) {
 
     } catch (error) {
         console.error('Error processing request:', error);
+        files_arr.forEach(f => {
+            try {
+                fs.unlinkSync(f);
+            } catch (e) {
+                console.warn('Failed to delete temp file:', f);
+            }
+        });
         return c.json({
             error: {
                 message: error.message,
