@@ -11,11 +11,46 @@ const { setupRoutes } = require('./web/routes.js');
 const path = require('path');
 
 // Function to extract cookies from cookies.txt
-function getCookiesFromFile() {
+// function getCookiesFromFile() {
+//     try {
+//         let cookiesPath;
+//         cookiesPath = path.join(__dirname, '.', 'cookies.txt');
+//         const cookieHeader = fs.readFileSync(cookiesPath, 'utf-8').trim();
+
+//         let secure1psid = null;
+//         let secure1psidts = null;
+
+//         // Parse cookie string format: "name1=value1; name2=value2"
+//         const cookies = cookieHeader.split(';').map(c => c.trim());
+
+//         for (const cookie of cookies) {
+//             const [name, value] = cookie.split('=');
+//             if (name && value) {
+//                 if (name === '__Secure-1PSID') {
+//                     secure1psid = value;
+//                 }
+//                 if (name === '__Secure-1PSIDTS') {
+//                     secure1psidts = value;
+//                 }
+//             }
+//         }
+
+//         return { secure1psid, secure1psidts };
+//     } catch (error) {
+//         console.error('Error reading cookies.txt:', error);
+//         return { secure1psid: null, secure1psidts: null };
+//     }
+// }
+
+function getCookiesFromEnv() {
     try {
-        let cookiesPath;
-        cookiesPath = path.join(__dirname, '.', 'cookies.txt');
-        const cookieHeader = fs.readFileSync(cookiesPath, 'utf-8').trim();
+        // Ambil cookie header dari env
+        const cookieHeader = config.COOKIE_HEADER?.trim();
+
+        if (!cookieHeader) {
+            console.warn('COOKIE_HEADER tidak ditemukan di env');
+            return { secure1psid: null, secure1psidts: null };
+        }
 
         let secure1psid = null;
         let secure1psidts = null;
@@ -37,13 +72,13 @@ function getCookiesFromFile() {
 
         return { secure1psid, secure1psidts };
     } catch (error) {
-        console.error('Error reading cookies.txt:', error);
+        console.error('Error parsing COOKIE_HEADER:', error);
         return { secure1psid: null, secure1psidts: null };
     }
 }
 
 // Initialize GeminiClient at startup
-const { secure1psid, secure1psidts } = getCookiesFromFile();
+const { secure1psid, secure1psidts } = getCookiesFromEnv();
 const client = new GeminiClient(secure1psid, secure1psidts);
 
 console.log('Initializing GeminiClient...');
@@ -76,12 +111,13 @@ app.use('/chat/*', async (c, next) => {
 
         // Check revoked tokens
         let revokedPath;
+        let revokedData;
         if (process.env.BUNDLED) {
             revokedPath = path.join(__dirname, '.', 'revokeds.json');
+            revokedData = JSON.parse(fs.readFileSync(revokedPath, 'utf-8'));
         } else {
-            revokedPath = path.join(__dirname, '.', 'json/revokeds.json');
+            revokedData = require('./json/revokeds.json');
         }
-        const revokedData = JSON.parse(fs.readFileSync(revokedPath, 'utf-8'));
         if (revokedData.revokeds.includes(token)) throw errorResponse('Revoked token', 403);
 
         c.set('user', decoded);

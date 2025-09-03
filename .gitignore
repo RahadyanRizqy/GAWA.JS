@@ -5,3 +5,5 @@ json/
 cookies.txt
 dist/
 unused/
+*.zip
+.gitconfig

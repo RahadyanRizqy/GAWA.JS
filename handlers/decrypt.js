@@ -48,12 +48,13 @@ async function decryptMdHandler(c) {
             // === Check revoked token ===
             try {
                 let revokedPath;
+                let revokedData;
                 if (process.env.BUNDLED) {
                     revokedPath = path.join(__dirname, '.', 'revokeds.json');
+                    revokedData = JSON.parse(fs.readFileSync(revokedPath, 'utf-8'));
                 } else {
-                    revokedPath = path.join(__dirname, '.', 'json/revokeds.json');
+                    revokedData = require('../json/revokeds.json');
                 }
-                const revokedData = JSON.parse(fs.readFileSync(revokedPath, "utf-8"));
                 if (revokedData.revokeds.includes(token)) throw errorResponse("Revoked token", 403);
             } catch (err) {
                 throw errorResponse(err.message, 500);
