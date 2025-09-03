@@ -4,7 +4,6 @@ const jwt = require('jsonwebtoken');
 const fs = require("fs");
 const path = require("path");
 const config = require('../config.env.js');
-const resolveFile = require('../utils/path-resolve.js');
 
 let decryptHtml;
 if (process.env.BUNDLED) {

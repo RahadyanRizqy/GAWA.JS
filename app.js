@@ -6,43 +6,10 @@ const { GeminiClient, setLogLevel }= require('./utils/GeminiClient.js');
 const errorResponse = require('./utils/error.js');
 const fs = require('fs');
 const config = require('./config.env.js');
-const resolveFile = require('./utils/path-resolve.js');
 const { setupRoutes } = require('./web/routes.js');
 const path = require('path');
 
 setLogLevel('DEBUG');
-
-// Function to extract cookies from cookies.txt
-// function getCookiesFromFile() {
-//     try {
-//         let cookiesPath;
-//         cookiesPath = path.join(__dirname, '.', 'cookies.txt');
-//         const cookieHeader = fs.readFileSync(cookiesPath, 'utf-8').trim();
-
-//         let secure1psid = null;
-//         let secure1psidts = null;
-
-//         // Parse cookie string format: "name1=value1; name2=value2"
-//         const cookies = cookieHeader.split(';').map(c => c.trim());
-
-//         for (const cookie of cookies) {
-//             const [name, value] = cookie.split('=');
-//             if (name && value) {
-//                 if (name === '__Secure-1PSID') {
-//                     secure1psid = value;
-//                 }
-//                 if (name === '__Secure-1PSIDTS') {
-//                     secure1psidts = value;
-//                 }
-//             }
-//         }
-
-//         return { secure1psid, secure1psidts };
-//     } catch (error) {
-//         console.error('Error reading cookies.txt:', error);
-//         return { secure1psid: null, secure1psidts: null };
-//     }
-// }
 
 function getCookiesFromEnv() {
     try {

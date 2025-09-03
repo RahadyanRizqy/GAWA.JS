@@ -1,10 +1,8 @@
 const { encryptMd, decryptMd, processChatMetadata } = require('../utils/metadata.js');
 const errorResponse = require('../utils/error.js');
-const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const config = require('../config.env.js');
-const resolveFile = require('../utils/path-resolve.js');
 
 // Shared chat handler function
 async function handleChat(c, gemId) {
@@ -42,12 +40,13 @@ async function handleChat(c, gemId) {
 
         let chat;
         let response;
+        let decryptedMetadata;
 
         if (isNewChat) {
             chat = c.get('client').startChat(null, 'unspecified', gemId);
             response = await chat.sendMessage(message, files_arr);
         } else {
-            const decryptedMetadata = decryptMd(validEncryptedMetadata, config.SECRET_KEY);
+            decryptedMetadata = decryptMd(validEncryptedMetadata, config.SECRET_KEY);
             chat = c.get('client').startChat(decryptedMetadata, 'unspecified', gemId);
             response = await chat.sendMessage(message, files_arr);
         }
@@ -55,6 +54,15 @@ async function handleChat(c, gemId) {
         // Encrypt new metadata
         const encryptedMetadata = encryptMd(chat.metadata, config.SECRET_KEY);
 
+        console.log({
+            message: message,
+            user: user.username,
+            encryptedMetada: metadataHeader,
+            decrytedMetadata: decryptedMetadata,
+            ...(gemId ? { gemId: gemId } : {}),
+            ...(files_arr ? { files: files_arr } : {})
+        });
+        
         // Clean up temp files
         files_arr.forEach(f => {
             try {
@@ -63,14 +71,13 @@ async function handleChat(c, gemId) {
                 console.warn('Failed to delete temp file:', f);
             }
         });
-
         // Response
         const resData = {
             data: {
                 message: response.text,
                 newChat: isNewChat,
                 user: user.username,
-                gemId: gemId
+                ...(gemId ? { gemId: gemId } : {})
             }
         };
 
