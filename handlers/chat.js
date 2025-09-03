@@ -14,13 +14,13 @@ async function handleChat(c, gemId) {
         // Parse form data
         const formData = await c.req.formData();
         const message = formData.get('message');
-        const file = formData.get('file');
+        const files = formData.get('files');
 
         if (!message) throw errorResponse('Message is required', 400);
 
         // Handle file upload
-        let files = [];
-        if (file) {
+        let files_arr = [];
+        if (files) {
             let tempDir;
             if (process.env.BUNDLED) {
                 tempDir = path.join(__dirname, '.', 'temp');
@@ -30,10 +30,10 @@ async function handleChat(c, gemId) {
             if (!fs.existsSync(tempDir)) {
                 fs.mkdirSync(tempDir, { recursive: true });
             }
-            const filePath = path.join(tempDir, file.name);
-            const buffer = await file.arrayBuffer();
+            const filePath = path.join(tempDir, files.name);
+            const buffer = await files.arrayBuffer();
             fs.writeFileSync(filePath, Buffer.from(buffer));
-            files.push(filePath);
+            files_arr.push(filePath);
         }
 
         // Check metadata
@@ -56,7 +56,7 @@ async function handleChat(c, gemId) {
         const encryptedMetadata = encryptMd(chat.metadata, config.SECRET_KEY);
 
         // Clean up temp files
-        files.forEach(f => {
+        files_arr.forEach(f => {
             try {
                 fs.unlinkSync(f);
             } catch (e) {
