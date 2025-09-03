@@ -122,7 +122,7 @@ app.use('/chat/*', async (c, next) => {
                 try {
                     revokedData = require('json/revokeds.json');
                 } catch (err2) {
-                    console.error('revokeds.json cant be found');
+                    throw new Error('revokeds.json cant be found');
                     revokedData = [];
                 }
             }
