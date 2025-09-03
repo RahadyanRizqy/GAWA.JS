@@ -6,7 +6,7 @@ const path = require('path');
 if (typeof process !== 'undefined' && process.env) {
     require('dotenv').config({ path: path.join(__dirname, '.', '.env')});
     config.SECRET_KEY = process.env.SECRET_KEY;
-    config.PORT = process.env.PORT;
+    config.PORT = process.env.PORT || 3000;
     config.COOKIE_HEADER = process.env.COOKIE_HEADER;
 }
 
