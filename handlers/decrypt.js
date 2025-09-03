@@ -53,7 +53,7 @@ async function decryptMdHandler(c) {
                     revokedPath = path.join(__dirname, '.', 'revokeds.json');
                     revokedData = JSON.parse(fs.readFileSync(revokedPath, 'utf-8'));
                 } else {
-                    revokedData = require('../json/revokeds.json');
+                    revokedData = require('../revokeds.json');
                 }
                 if (revokedData.revokeds.includes(token)) throw errorResponse("Revoked token", 403);
             } catch (err) {
