@@ -2,13 +2,15 @@ const { Hono } = require('hono');
 const { serve } = require('@hono/node-server');
 const { logger } = require('hono/logger');
 const jwt = require('jsonwebtoken');
-const GeminiClient = require('./utils/GeminiClient.js');
+const { GeminiClient, setLogLevel }= require('./utils/GeminiClient.js');
 const errorResponse = require('./utils/error.js');
 const fs = require('fs');
 const config = require('./config.env.js');
 const resolveFile = require('./utils/path-resolve.js');
 const { setupRoutes } = require('./web/routes.js');
 const path = require('path');
+
+setLogLevel('DEBUG');
 
 // Function to extract cookies from cookies.txt
 // function getCookiesFromFile() {
@@ -79,10 +81,10 @@ function getCookiesFromEnv() {
 
 // Initialize GeminiClient at startup
 const { secure1psid, secure1psidts } = getCookiesFromEnv();
-const client = new GeminiClient(secure1psid, secure1psidts);
+const client = new GeminiClient(secure1psid, secure1psidts, null);
 
 console.log('Initializing GeminiClient...');
-client.init(300000, true).then(() => {
+client.init(300000, false, 300000, true, true).then(() => {
     console.log('GeminiClient initialized successfully');
 }).catch((error) => {
     console.error('Failed to initialize GeminiClient:', error);

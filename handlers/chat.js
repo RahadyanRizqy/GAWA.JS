@@ -1,4 +1,3 @@
-const GeminiClient = require('../utils/GeminiClient.js');
 const { encryptMd, decryptMd, processChatMetadata } = require('../utils/metadata.js');
 const errorResponse = require('../utils/error.js');
 const jwt = require('jsonwebtoken');
@@ -45,12 +44,12 @@ async function handleChat(c, gemId) {
         let response;
 
         if (isNewChat) {
-            chat = c.get('client').startChat(null, gemId);
-            response = await chat.send_message(message, files);
+            chat = c.get('client').startChat(null, 'unspecified', gemId);
+            response = await chat.sendMessage(message, files);
         } else {
             const decryptedMetadata = decryptMd(validEncryptedMetadata, config.SECRET_KEY);
             chat = c.get('client').startChat(decryptedMetadata, gemId);
-            response = await chat.send_message(message, files);
+            response = await chat.sendMessage(message, files);
         }
 
         // Encrypt new metadata
