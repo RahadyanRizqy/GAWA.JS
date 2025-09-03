@@ -48,7 +48,7 @@ async function handleChat(c, gemId) {
             response = await chat.sendMessage(message, files);
         } else {
             const decryptedMetadata = decryptMd(validEncryptedMetadata, config.SECRET_KEY);
-            chat = c.get('client').startChat(decryptedMetadata, gemId);
+            chat = c.get('client').startChat(decryptedMetadata, 'unspecified', gemId);
             response = await chat.sendMessage(message, files);
         }
 
