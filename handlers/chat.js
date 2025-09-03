@@ -60,9 +60,9 @@ async function handleChat(c, gemId) {
             encryptedMetada: metadataHeader,
             decrytedMetadata: decryptedMetadata,
             ...(gemId ? { gemId: gemId } : {}),
-            ...(files_arr ? { files: files_arr } : {})
+            ...(files_arr.length > 0 ? { files: files_arr } : {})
         });
-        
+
         // Clean up temp files
         files_arr.forEach(f => {
             try {
