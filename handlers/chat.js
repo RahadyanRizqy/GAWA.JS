@@ -45,11 +45,11 @@ async function handleChat(c, gemId) {
 
         if (isNewChat) {
             chat = c.get('client').startChat(null, 'unspecified', gemId);
-            response = await chat.sendMessage(message, files);
+            response = await chat.sendMessage(message, files_arr);
         } else {
             const decryptedMetadata = decryptMd(validEncryptedMetadata, config.SECRET_KEY);
             chat = c.get('client').startChat(decryptedMetadata, 'unspecified', gemId);
-            response = await chat.sendMessage(message, files);
+            response = await chat.sendMessage(message, files_arr);
         }
 
         // Encrypt new metadata
