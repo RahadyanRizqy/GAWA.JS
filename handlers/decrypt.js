@@ -57,9 +57,9 @@ async function decryptMdHandler(c) {
                         revokedData = require('../json/revokeds.json');
                     } catch (err1) {
                         try {
-                            revokedData = require('./json/revokeds.json');
+                            revokedData = require('json/revokeds.json');
                         } catch (err2) {
-                            console.error('revokeds.json tidak ditemukan di kedua path');
+                            console.error('revokeds.json cant be found');
                             revokedData = [];
                         }
                     }

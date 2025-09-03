@@ -116,7 +116,16 @@ app.use('/chat/*', async (c, next) => {
             revokedPath = path.join(__dirname, '.', 'revokeds.json');
             revokedData = JSON.parse(fs.readFileSync(revokedPath, 'utf-8'));
         } else {
-            revokedData = require('./json/revokeds.json');
+            try {
+                revokedData = require('./json/revokeds.json');
+            } catch (err1) {
+                try {
+                    revokedData = require('json/revokeds.json');
+                } catch (err2) {
+                    console.error('revokeds.json cant be found');
+                    revokedData = [];
+                }
+            }
         }
         if (revokedData.revokeds.includes(token)) throw errorResponse('Revoked token', 403);
 
