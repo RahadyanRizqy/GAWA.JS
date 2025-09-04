@@ -1,16 +1,11 @@
 {
-  "name": "gemini-js-client",
+  "name": "gawa.js",
   "version": "1.0.0",
   "description": "JavaScript version of GeminiClient mimicking Python gemini_webapi",
-  "main": "app.js",
+  "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node app.js",
-    "chat": "node chat.js",
-    "session": "node session.js --interactive",
-    "session-simple": "node session.js --simple",
-    "sendbase64": "node sendbase64.js --example",
-    "test-autorefresh": "node test-autorefresh.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",
