@@ -2,12 +2,15 @@ const { Hono } = require('hono');
 const { serve } = require('@hono/node-server');
 const { logger } = require('hono/logger');
 const jwt = require('jsonwebtoken');
-const { GeminiClient, setLogLevel }= require('./utils/GeminiClient.js');
 const errorResponse = require('./utils/error.js');
 const fs = require('fs');
 const config = require('./config.env.js');
 const { setupRoutes } = require('./web/routes.js');
 const path = require('path');
+
+// Use the custom client that skips browser cookie extraction
+const { CustomGeminiClient } = require('./utils/CustomGeminiClient.js');
+const { setLogLevel } = require('./utils/GeminiClient.js');
 
 setLogLevel('DEBUG');
 
@@ -39,6 +42,7 @@ function getCookiesFromEnv() {
             }
         }
 
+        console.log('Parsed cookies:', { secure1psid, secure1psidts });
         return { secure1psid, secure1psidts };
     } catch (error) {
         console.error('Error parsing COOKIE_HEADER:', error);
@@ -46,77 +50,96 @@ function getCookiesFromEnv() {
     }
 }
 
-// Initialize GeminiClient at startup
-const { secure1psid, secure1psidts } = getCookiesFromEnv();
-const client = new GeminiClient(secure1psid, secure1psidts, null);
-
-console.log('Initializing GeminiClient...');
-client.init(300000, false, 300000, true, true).then(() => {
-    console.log('GeminiClient initialized successfully');
-}).catch((error) => {
-    console.error('Failed to initialize GeminiClient:', error);
-});
-
-const app = new Hono();
-
-app.use('*', logger()); // logger dulu
-
-// Middleware to attach client
-app.use('*', async (c, next) => {
-    c.set('client', client);
-    await next();
-});
-
-// JWT Authentication middleware with revoked token check (only for /chat routes)
-app.use('/chat/*', async (c, next) => {
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw errorResponse('Unauthorized', 401);
-    }
-    const token = authHeader.substring(7);
-
+async function initializeServer() {
     try {
-        const decoded = jwt.verify(token, config.SECRET_KEY);
-
-        // Check revoked tokens
-        let revokedPath;
-        let revokedData;
-        if (process.env.BUNDLED) {
-            revokedPath = path.join(__dirname, '.', 'revokeds.json');
-            revokedData = JSON.parse(fs.readFileSync(revokedPath, 'utf-8'));
-        } else {
-            revokedData = require('./revokeds.json');
+        // Initialize GeminiClient at startup
+        const { secure1psid, secure1psidts } = getCookiesFromEnv();
+        
+        // Validate cookies
+        if (!secure1psid) {
+            throw new Error('SECURE_1PSID cookie is required. Please check your COOKIE_HEADER environment variable');
         }
-        if (revokedData.revokeds.includes(token)) throw errorResponse('Revoked token', 403);
 
-        c.set('user', decoded);
-        await next();
-    } catch (err) {
-        if (err.code) {
-            throw err;
-        }
-        throw errorResponse('Invalid token', 401);
+        const client = new CustomGeminiClient(secure1psid, secure1psidts, null);
+
+        console.log('Initializing GeminiClient...');
+        await client.init(30000, false, 300000, true, 540, true);
+        console.log('GeminiClient initialized successfully');
+
+        const app = new Hono();
+
+        app.use('*', logger());
+
+        // Middleware to attach client
+        app.use('*', async (c, next) => {
+            c.set('client', client);
+            await next();
+        });
+
+        // JWT Authentication middleware
+        app.use('/chat/*', async (c, next) => {
+            const authHeader = c.req.header('Authorization');
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                throw errorResponse('Unauthorized', 401);
+            }
+            const token = authHeader.substring(7);
+
+            try {
+                const decoded = jwt.verify(token, config.SECRET_KEY);
+
+                // Check revoked tokens
+                let revokedPath;
+                let revokedData;
+                if (process.env.BUNDLED) {
+                    revokedPath = path.join(__dirname, '.', 'revokeds.json');
+                    revokedData = JSON.parse(fs.readFileSync(revokedPath, 'utf-8'));
+                } else {
+                    revokedData = require('./revokeds.json');
+                }
+                if (revokedData.revokeds.includes(token)) throw errorResponse('Revoked token', 403);
+
+                c.set('user', decoded);
+                await next();
+            } catch (err) {
+                if (err.code) {
+                    throw err;
+                }
+                throw errorResponse('Invalid token', 401);
+            }
+        });
+
+        // Setup routes
+        setupRoutes(app);
+
+        // Global error handler
+        app.onError((err, c) => {
+            return c.json({
+                error: {
+                    message: err.message,
+                    code: err.code || 500
+                }
+            }, err.code || 500);
+        });
+
+        // Start server
+        const port = config.PORT || 3000;
+        serve({
+            fetch: app.fetch,
+            port: port
+        });
+
+        console.log(`Server running on port ${port}`);
+        
+        return { app, client };
+        
+    } catch (error) {
+        console.error('Failed to initialize server:', error.message);
+        process.exit(1);
     }
+}
+
+// Start the server
+initializeServer().catch(error => {
+    console.error('Server startup failed:', error);
+    process.exit(1);
 });
-
-// Setup routes
-setupRoutes(app);
-
-// Global error handler
-app.onError((err, c) => {
-    return c.json({
-        error: {
-        message: err.message,
-        code: err.code || 500
-        }
-    }, err.code || 500);
-});
-
-// Start server
-const port = config.PORT || 3000;
-serve({
-    fetch: app.fetch,
-    port: port
-});
-
-console.log(`Server running on port ${port}`);

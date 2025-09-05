@@ -1,854 +1,1507 @@
-const axios = require('axios');
+// gemini.js
+const https = require('https');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const FormData = require('form-data');
+const { URL } = require('url');
+const crypto = require('crypto');
+const { promisify } = require('util');
+const os = require('os');
+const sqlite3 = require('sqlite3');
+const { app, session } = require('electron');
+const keytar = require('keytar');
 
-// Simple logging configuration
-let logLevel = 'INFO';
-const LOG_LEVELS = {
-  DEBUG: 0,
-  INFO: 1,
-  WARNING: 2,
-  ERROR: 3,
-  CRITICAL: 4
+// Promisify file operations
+const readFile = promisify(fs.readFile);
+const writeFile = promisify(fs.writeFile);
+const mkdir = promisify(fs.mkdir);
+const stat = promisify(fs.stat);
+const readdir = promisify(fs.readdir);
+
+// Enums and Constants
+const GRPC = Object.freeze({
+  READ_CHAT: "hNvQHb",
+  LIST_GEMS: "CNgdBe",
+  CREATE_GEM: "oMH3Zd",
+  UPDATE_GEM: "kHv0Vd",
+  DELETE_GEM: "UXcSJb"
+});
+
+const Endpoint = Object.freeze({
+  GOOGLE: "https://www.google.com",
+  INIT: "https://gemini.google.com/app",
+  GENERATE: "https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate",
+  ROTATE_COOKIES: "https://accounts.google.com/RotateCookies",
+  UPLOAD: "https://content-push.googleapis.com/upload",
+  BATCH_EXEC: "https://gemini.google.com/_/BardChatUi/data/batchexecute"
+});
+
+const ErrorCode = Object.freeze({
+  USAGE_LIMIT_EXCEEDED: 1037,
+  MODEL_INCONSISTENT: 1050,
+  MODEL_HEADER_INVALID: 1052,
+  IP_TEMPORARILY_BLOCKED: 1060
+});
+
+const Headers = Object.freeze({
+  GEMINI: {
+    "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+    "Host": "gemini.google.com",
+    "Origin": "https://gemini.google.com",
+    "Referer": "https://gemini.google.com/",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "X-Same-Domain": "1"
+  },
+  ROTATE_COOKIES: {
+    "Content-Type": "application/json"
+  },
+  UPLOAD: {"Push-ID": "feeds/mcudyrk2a4khkz"}
+});
+
+const Model = Object.freeze({
+  UNSPECIFIED: {
+    modelName: "unspecified",
+    modelHeader: {},
+    advancedOnly: false
+  },
+  G_2_5_FLASH: {
+    modelName: "gemini-2.5-flash",
+    modelHeader: {"x-goog-ext-525001261-jspb": '[1,null,null,null,"71c2d248d3b102ff",null,null,0,[4]]'},
+    advancedOnly: false
+  },
+  G_2_5_PRO: {
+    modelName: "gemini-2.5-pro",
+    modelHeader: {"x-goog-ext-525001261-jspb": '[1,null,null,null,"4af6c7f5da75d65d",null,null,0,[4]]'},
+    advancedOnly: false
+  },
+  G_2_0_FLASH: {
+    modelName: "gemini-2.0-flash",
+    modelHeader: {"x-goog-ext-525001261-jspb": '[1,null,null,null,"f299729663a2343f"]'},
+    advancedOnly: false
+  },
+  G_2_0_FLASH_THINKING: {
+    modelName: "gemini-2.0-flash-thinking",
+    modelHeader: {"x-goog-ext-525001261-jspb": '[null,null,null,null,"7ca48d02d802f20a"]'},
+    advancedOnly: false
+  }
+});
+
+// Custom Errors
+class AuthError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
+class APIError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'APIError';
+  }
+}
+
+class ImageGenerationError extends APIError {
+  constructor(message) {
+    super(message);
+    this.name = 'ImageGenerationError';
+  }
+}
+
+class GeminiError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'GeminiError';
+  }
+}
+
+class TimeoutError extends GeminiError {
+  constructor(message) {
+    super(message);
+    this.name = 'TimeoutError';
+  }
+}
+
+class UsageLimitExceeded extends GeminiError {
+  constructor(message) {
+    super(message);
+    this.name = 'UsageLimitExceeded';
+  }
+}
+
+class ModelInvalid extends GeminiError {
+  constructor(message) {
+    super(message);
+    this.name = 'ModelInvalid';
+  }
+}
+
+class TemporarilyBlocked extends GeminiError {
+  constructor(message) {
+    super(message);
+    this.name = 'TemporarilyBlocked';
+  }
+}
+
+// Utility functions
+function htmlUnescape(text) {
+  const entities = {
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#x27;': "'",
+    '&#x2F;': '/',
+    '&nbsp;': ' ',
+    '&#39;': "'"
+  };
+  
+  return text.replace(/&amp;|&lt;|&gt;|&quot;|&#x27;|&#x2F;|&nbsp;|&#39;/g, match => entities[match]);
+}
+
+function decodeHtml(value) {
+  if (!value) return value;
+  return htmlUnescape(value);
+}
+
+function parseCookies(cookieHeader) {
+  const cookies = {};
+  if (!cookieHeader) return cookies;
+  
+  if (Array.isArray(cookieHeader)) {
+    cookieHeader.forEach(header => {
+      header.split(';').forEach(cookie => {
+        const parts = cookie.split('=');
+        if (parts.length > 1) {
+          cookies[parts[0].trim()] = parts.slice(1).join('=').trim();
+        }
+      });
+    });
+  } else {
+    cookieHeader.split(';').forEach(cookie => {
+      const parts = cookie.split('=');
+      if (parts.length > 1) {
+        cookies[parts[0].trim()] = parts.slice(1).join('=').trim();
+      }
+    });
+  }
+  
+  return cookies;
+}
+
+function formatCookies(cookies) {
+  return Object.entries(cookies)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('; ');
+}
+
+// Enhanced HTTP request helper with retry logic
+async function makeRequest(url, options = {}, retries = 3, backoff = 300) {
+  let lastError;
+  
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await new Promise((resolve, reject) => {
+        const urlObj = new URL(url);
+        const protocol = urlObj.protocol === 'https:' ? https : http;
+        const requestOptions = {
+          hostname: urlObj.hostname,
+          port: urlObj.port,
+          path: urlObj.pathname + urlObj.search,
+          method: options.method || 'GET',
+          headers: options.headers || {},
+          timeout: options.timeout || 30000
+        };
+        
+        if (options.data && requestOptions.method === 'POST') {
+          requestOptions.headers['Content-Length'] = Buffer.byteLength(options.data);
+        }
+        
+        const req = protocol.request(requestOptions, (res) => {
+          let data = '';
+          const cookies = parseCookies(res.headers['set-cookie']);
+          
+          res.on('data', (chunk) => {
+            data += chunk;
+          });
+          
+          res.on('end', () => {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              resolve({
+                statusCode: res.statusCode,
+                headers: res.headers,
+                data: data,
+                cookies: cookies
+              });
+            } else {
+              reject(new Error(`Request failed with status code ${res.statusCode}: ${data}`));
+            }
+          });
+        });
+        
+        req.on('error', (error) => {
+          reject(error);
+        });
+        
+        req.on('timeout', () => {
+          req.destroy();
+          reject(new TimeoutError('Request timed out'));
+        });
+        
+        if (options.data && requestOptions.method === 'POST') {
+          req.write(options.data);
+        }
+        
+        req.end();
+      });
+    } catch (error) {
+      lastError = error;
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, backoff));
+        backoff *= 2; // Exponential backoff
+      }
+    }
+  }
+  
+  throw lastError;
+}
+
+// Browser cookie extraction
+async function loadBrowserCookies(domainName = "", verbose = true) {
+  const cookies = {};
+  const platforms = {
+    darwin: {
+      chrome: [
+        `${os.homedir()}/Library/Application Support/Google/Chrome/Default/Cookies`,
+        `${os.homedir()}/Library/Application Support/Google/Chrome/Profile */Cookies`
+      ],
+      chromium: [
+        `${os.homedir()}/Library/Application Support/Chromium/Default/Cookies`,
+        `${os.homedir()}/Library/Application Support/Chromium/Profile */Cookies`
+      ],
+      firefox: [
+        `${os.homedir()}/Library/Application Support/Firefox/Profiles/*.default/cookies.sqlite`
+      ],
+      safari: [
+        `${os.homedir()}/Library/Cookies/Cookies.binarycookies`
+      ]
+    },
+    win32: {
+      chrome: [
+        `${process.env.LOCALAPPDATA}/Google/Chrome/User Data/Default/Cookies`,
+        `${process.env.LOCALAPPDATA}/Google/Chrome/User Data/Profile */Cookies`
+      ],
+      chromium: [
+        `${process.env.LOCALAPPDATA}/Chromium/User Data/Default/Cookies`,
+        `${process.env.LOCALAPPDATA}/Chromium/User Data/Profile */Cookies`
+      ],
+      edge: [
+        `${process.env.LOCALAPPDATA}/Microsoft/Edge/User Data/Default/Cookies`,
+        `${process.env.LOCALAPPDATA}/Microsoft/Edge/User Data/Profile */Cookies`
+      ],
+      firefox: [
+        `${process.env.APPDATA}/Mozilla/Firefox/Profiles/*.default/cookies.sqlite`
+      ]
+    },
+    linux: {
+      chrome: [
+        `${os.homedir()}/.config/google-chrome/Default/Cookies`,
+        `${os.homedir()}/.config/google-chrome/Profile */Cookies`
+      ],
+      chromium: [
+        `${os.homedir()}/.config/chromium/Default/Cookies`,
+        `${os.homedir()}/.config/chromium/Profile */Cookies`
+      ],
+      firefox: [
+        `${os.homedir()}/.mozilla/firefox/*.default/cookies.sqlite`
+      ]
+    }
+  };
+
+  const platform = platforms[process.platform];
+  if (!platform) {
+    if (verbose) console.warn(`Unsupported platform: ${process.platform}`);
+    return cookies;
+  }
+
+  for (const [browser, paths] of Object.entries(platform)) {
+    for (const pattern of paths) {
+      try {
+        const files = await glob(pattern);
+        for (const file of files) {
+          try {
+            const dbCookies = await extractCookiesFromDB(file, domainName);
+            Object.assign(cookies, dbCookies);
+          } catch (error) {
+            if (verbose) console.warn(`Failed to extract cookies from ${file}: ${error.message}`);
+          }
+        }
+      } catch (error) {
+        if (verbose) console.debug(`No cookies found for ${browser} at ${pattern}`);
+      }
+    }
+  }
+
+  return cookies;
+}
+
+async function extractCookiesFromDB(dbPath, domainName) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath);
+    const cookies = {};
+    
+    const query = domainName ? 
+      `SELECT name, value FROM cookies WHERE host_key LIKE '%${domainName}%'` :
+      `SELECT name, value FROM cookies`;
+    
+    db.all(query, (err, rows) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      rows.forEach(row => {
+        cookies[row.name] = row.value;
+      });
+      
+      db.close();
+      resolve(cookies);
+    });
+  });
+}
+
+async function glob(pattern) {
+  const files = [];
+  const baseDir = pattern.split('*')[0];
+  const dir = path.dirname(baseDir);
+  const baseName = path.basename(baseDir);
+  
+  try {
+    const entries = await readdir(dir);
+    for (const entry of entries) {
+      if (entry.startsWith(baseName)) {
+        files.push(path.join(dir, entry));
+      }
+    }
+  } catch (error) {
+    // Directory doesn't exist or can't be read
+  }
+  
+  return files;
+}
+
+// Logging configuration
+let logger = {
+  level: 'INFO',
+  trace: (...args) => { if (this.level === 'TRACE') console.trace(...args); },
+  debug: (...args) => { if (['TRACE', 'DEBUG'].includes(this.level)) console.debug(...args); },
+  info: (...args) => { if (['TRACE', 'DEBUG', 'INFO'].includes(this.level)) console.info(...args); },
+  warn: (...args) => { if (['TRACE', 'DEBUG', 'INFO', 'WARN'].includes(this.level)) console.warn(...args); },
+  error: (...args) => { if (['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR'].includes(this.level)) console.error(...args); },
+  success: (...args) => { if (['TRACE', 'DEBUG', 'INFO'].includes(this.level)) console.log('✅', ...args); }
 };
 
 function setLogLevel(level) {
-  logLevel = level.toUpperCase();
+  const validLevels = ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'];
+  if (!validLevels.includes(level.toUpperCase())) {
+    throw new Error(`Invalid log level: ${level}. Valid levels are: ${validLevels.join(', ')}`);
+  }
+  logger.level = level.toUpperCase();
 }
 
-function log(level, message) {
-  if (LOG_LEVELS[level] >= LOG_LEVELS[logLevel]) {
-    console.log(`[${level}] ${message}`);
+// Classes
+class Gem {
+  constructor(id, name, description = null, prompt = null, predefined = false) {
+    this.id = id;
+    this.name = name;
+    this.description = description;
+    this.prompt = prompt;
+    this.predefined = predefined;
+  }
+
+  toString() {
+    return `Gem(id='${this.id}', name='${this.name}', description='${this.description}', prompt='${this.prompt}', predefined=${this.predefined})`;
   }
 }
 
-// Constants mimicking Python
-const ENDPOINTS = {
-  GOOGLE: 'https://www.google.com',
-  INIT: 'https://gemini.google.com/app',
-  GENERATE: 'https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate',
-  ROTATE_COOKIES: 'https://accounts.google.com/RotateCookies',
-  UPLOAD: 'https://content-push.googleapis.com/upload',
-  BATCH_EXEC: 'https://gemini.google.com/_/BardChatUi/data/batchexecute'
-};
-
-const HEADERS = {
-  GEMINI: {
-    'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
-    'Host': 'gemini.google.com',
-    'Origin': 'https://gemini.google.com',
-    'Referer': 'https://gemini.google.com/',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'X-Same-Domain': '1'
-  },
-  ROTATE_COOKIES: {
-    'Content-Type': 'application/json'
-  },
-  UPLOAD: { 'Push-ID': 'feeds/mcudyrk2a4khkz' }
-};
-
-const MODELS = {
-  UNSPECIFIED: { name: 'unspecified', header: {} },
-  G_2_5_FLASH: {
-    name: 'gemini-2.5-flash',
-    header: { 'x-goog-ext-525001261-jspb': '[1,null,null,null,"71c2d248d3b102ff"]' }
-  },
-  G_2_5_PRO: {
-    name: 'gemini-2.5-pro',
-    header: { 'x-goog-ext-525001261-jspb': '[1,null,null,null,"71c2d248d3b102ff"]' }
-  },
-  G_2_0_FLASH: {
-    name: 'gemini-2.0-flash',
-    header: { 'x-goog-ext-525001261-jspb': '[1,null,null,null,"71c2d248d3b102ff"]' }
-  },
-  G_2_0_FLASH_THINKING: {
-    name: 'gemini-2.0-flash-thinking',
-    header: { 'x-goog-ext-525001261-jspb': '[1,null,null,null,"71c2d248d3b102ff"]' }
+class GemJar extends Map {
+  constructor(entries = []) {
+    super(entries);
   }
-};
 
-function getModel(modelName) {
-  const upperName = modelName.toUpperCase().replace(/-/g, '_');
-  return MODELS[upperName] || MODELS.UNSPECIFIED;
+  get(id = null, name = null, defaultValue = null) {
+    if (id === null && name === null) {
+      throw new Error("At least one of gem id or name must be provided.");
+    }
+
+    if (id !== null) {
+      const gemCandidate = super.get(id);
+      if (gemCandidate) {
+        if (name !== null) {
+          return gemCandidate.name === name ? gemCandidate : defaultValue;
+        }
+        return gemCandidate;
+      }
+      return defaultValue;
+    } else if (name !== null) {
+      for (const gem of this.values()) {
+        if (gem.name === name) {
+          return gem;
+        }
+      }
+      return defaultValue;
+    }
+
+    return defaultValue;
+  }
+
+  filter(predefined = null, name = null) {
+    const filteredGems = new GemJar();
+    
+    for (const [gemId, gem] of this.entries()) {
+      if (predefined !== null && gem.predefined !== predefined) {
+        continue;
+      }
+      if (name !== null && gem.name !== name) {
+        continue;
+      }
+      filteredGems.set(gemId, gem);
+    }
+    
+    return filteredGems;
+  }
 }
 
-// ModelOutput class equivalent to Python's ModelOutput
-class ModelOutput {
-  constructor(text, candidates, metadata, rcid, images = [], thoughts = null) {
-    this.text = text;
-    this.candidates = candidates;
-    this.metadata = metadata;
+class RPCData {
+  constructor(rpcid, payload, identifier = "generic") {
+    this.rpcid = rpcid;
+    this.payload = payload;
+    this.identifier = identifier;
+  }
+
+  serialize() {
+    return [this.rpcid, this.payload, null, this.identifier];
+  }
+}
+
+class Image {
+  constructor(url, title = "[Image]", alt = "", proxy = null) {
+    this.url = url;
+    this.title = title;
+    this.alt = alt;
+    this.proxy = proxy;
+  }
+
+  toString() {
+    const urlStr = this.url.length <= 20 ? this.url : `${this.url.substring(0, 8)}...${this.url.substring(this.url.length - 12)}`;
+    return `Image(title='${this.title}', alt='${this.alt}', url='${urlStr}')`;
+  }
+
+  async save(path = "temp", filename = null, cookies = null, verbose = false, skipInvalidFilename = false) {
+    filename = filename || this.url.split('/').pop().split('?')[0];
+    
+    // Extract valid filename with extension
+    const match = filename.match(/^(.*\.\w+)/);
+    if (match) {
+      filename = match[0];
+    } else {
+      if (verbose) {
+        logger.warn(`Invalid filename: ${filename}`);
+      }
+      if (skipInvalidFilename) {
+        return null;
+      }
+    }
+
+    try {
+      const headers = {};
+      if (cookies) {
+        headers.Cookie = formatCookies(cookies);
+      }
+      
+      const response = await makeRequest(this.url, {
+        method: 'GET',
+        headers: headers
+      });
+
+      const contentType = response.headers['content-type'];
+      if (contentType && !contentType.includes('image')) {
+        logger.warn(`Content type of ${filename} is not image, but ${contentType}.`);
+      }
+
+      // Ensure directory exists
+      try {
+        await stat(path);
+      } catch (error) {
+        await mkdir(path, { recursive: true });
+      }
+
+      const dest = path + '/' + filename;
+      await writeFile(dest, response.data);
+
+      if (verbose) {
+        logger.info(`Image saved as ${path.resolve(dest)}`);
+      }
+
+      return dest;
+    } catch (error) {
+      throw new Error(`Error downloading image: ${error.message}`);
+    }
+  }
+}
+
+class WebImage extends Image {
+  // WebImage is the same as Image
+}
+
+class GeneratedImage extends Image {
+  constructor(url, title = "[Image]", alt = "", proxy = null, cookies = {}) {
+    super(url, title, alt, proxy);
+    this.cookies = cookies;
+    
+    if (Object.keys(cookies).length === 0) {
+      throw new Error("GeneratedImage is designed to be initialized with same cookies as GeminiClient.");
+    }
+  }
+
+  async save(fullSize = true, options = {}) {
+    if (fullSize) {
+      this.url += "=s2048";
+    }
+
+    const filename = options.filename || 
+      `${new Date().toISOString().replace(/[-:.]/g, '').slice(0, 14)}_${this.url.slice(-10)}.png`;
+    
+    return super.save(
+      options.path || "temp",
+      filename,
+      this.cookies,
+      options.verbose || false,
+      options.skipInvalidFilename || false
+    );
+  }
+}
+
+class Candidate {
+  constructor(rcid, text, thoughts = null, webImages = [], generatedImages = []) {
     this.rcid = rcid;
-    this.images = images;
-    this.thoughts = thoughts;
+    this.text = decodeHtml(text);
+    this.thoughts = decodeHtml(thoughts);
+    this.webImages = webImages;
+    this.generatedImages = generatedImages;
   }
 
   toString() {
     return this.text;
   }
-}
 
-// Image classes
-class WebImage {
-  constructor(title, url, alt) {
-    this.title = title;
-    this.url = url;
-    this.alt = alt;
+  [Symbol.toStringTag]() {
+    const textPreview = this.text.length <= 20 ? this.text : `${this.text.substring(0, 20)}...`;
+    return `Candidate(rcid='${this.rcid}', text='${textPreview}', images=${this.images.length})`;
   }
 
-  async save(path = './', filename = null, verbose = false) {
-    // Implementation for saving web image
-    if (verbose) console.log(`Saving web image: ${this.url}`);
-    // Use axios to download and save
-    const response = await axios.get(this.url, { responseType: 'arraybuffer' });
-    const buffer = Buffer.from(response.data);
-    const fileName = filename || this.title || 'image.jpg';
-    const filePath = path.join(path, fileName);
-    fs.writeFileSync(filePath, buffer);
-    if (verbose) console.log(`Saved to ${filePath}`);
+  get images() {
+    return [...this.webImages, ...this.generatedImages];
+  }
+}
+
+class ModelOutput {
+  constructor(metadata, candidates, chosen = 0) {
+    this.metadata = metadata;
+    this.candidates = candidates;
+    this.chosen = chosen;
   }
 
   toString() {
-    return `WebImage(title=${this.title}, url=${this.url})`;
+    return this.text;
+  }
+
+  [Symbol.toStringTag]() {
+    return `ModelOutput(metadata=${JSON.stringify(this.metadata)}, chosen=${this.chosen}, candidates=${this.candidates.length})`;
+  }
+
+  get text() {
+    return this.candidates[this.chosen].text;
+  }
+
+  get thoughts() {
+    return this.candidates[this.chosen].thoughts;
+  }
+
+  get images() {
+    return this.candidates[this.chosen].images;
+  }
+
+  get rcid() {
+    return this.candidates[this.chosen].rcid;
   }
 }
 
-class GeneratedImage {
-  constructor(title, url, alt) {
-    this.title = title;
-    this.url = url;
-    this.alt = alt;
-  }
-
-  async save(path = './', filename = null, verbose = false) {
-    // Similar to WebImage
-    if (verbose) console.log(`Saving generated image: ${this.url}`);
-    const response = await axios.get(this.url, { responseType: 'arraybuffer' });
-    const buffer = Buffer.from(response.data);
-    const fileName = filename || this.title || 'generated_image.jpg';
-    const filePath = path.join(path, fileName);
-    fs.writeFileSync(filePath, buffer);
-    if (verbose) console.log(`Saved to ${filePath}`);
-  }
-
-  toString() {
-    return `GeneratedImage(title=${this.title}, url=${this.url})`;
-  }
-}
-
-// Gem class
-class Gem {
-  constructor(id, name, prompt, description, predefined = false) {
-    this.id = id;
-    this.name = name;
-    this.prompt = prompt;
-    this.description = description;
-    this.predefined = predefined;
-  }
-
-  toString() {
-    return `Gem(id=${this.id}, name=${this.name})`;
-  }
-}
-
-// Gems collection
-class GemsCollection {
-  constructor(gems = []) {
-    this.gems = gems;
-  }
-
-  filter(predefined = null) {
-    if (predefined === null) return new GemsCollection(this.gems);
-    return new GemsCollection(this.gems.filter(gem => gem.predefined === predefined));
-  }
-
-  get(idOrName) {
-    return this.gems.find(gem => gem.id === idOrName || gem.name === idOrName);
-  }
-
-  toString() {
-    return `GemsCollection(${this.gems.length} gems)`;
-  }
-}
-
-// ChatSession class equivalent to Python's ChatSession
-class ChatSession {
-  constructor(client, metadata = null, model = 'unspecified', gem = null) {
-    this.client = client;
-    this.model = model;
-    this.gem = gem;
-    this.last_output = null;
-
-    // Ensure metadata is an array with 3 elements [cid, rid, rcid]
-    let initialMetadata = [null, null, null];
-    if (metadata) {
-      if (Array.isArray(metadata)) {
-        initialMetadata = metadata.slice(0, 3);
-        while (initialMetadata.length < 3) {
-          initialMetadata.push(null);
-        }
-      } else {
-        initialMetadata[0] = metadata; // Assume it's cid
-      }
-    }
-    this.metadata = initialMetadata;
-  }
-
-  async sendMessage(message, files = [], model = null) {
-    const response = await this.client.generateContent(
-      message,
-      files,
-      model || this.model,
-      this,
-      this.gem
-    );
-    this.last_output = response;
-    return response;
-  }
-
-  chooseCandidate(index = 0) {
-    if (!this.last_output || !this.last_output.candidates || index >= this.last_output.candidates.length) {
-      throw new Error('Invalid candidate index');
-    }
-    return this.last_output.candidates[index];
-  }
-}
-
-// Global task tracking (similar to Python's rotate_tasks)
-const rotateTasks = new Map();
-
-// Cookie rotation function (equivalent to Python's rotate_1psidts)
-async function rotate1psidts(cookies, proxy = null) {
-  const tempDir = path.join(__dirname, 'temp');
-  if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir, { recursive: true });
-  }
-
+// Cookie rotation and management
+async function rotate1PSIDTS(cookies, proxy = null) {
+  const cacheDir = path.join(__dirname, 'temp');
   const filename = `.cached_1psidts_${cookies['__Secure-1PSID']}.txt`;
-  const cacheFile = path.join(tempDir, filename);
-
-  // Check if cache file exists and was modified within the last minute
-  let shouldRotate = true;
-  if (fs.existsSync(cacheFile)) {
-    const stats = fs.statSync(cacheFile);
-    const lastModified = stats.mtime.getTime();
-    const now = Date.now();
-    const oneMinute = 60 * 1000; // 1 minute in milliseconds
-
-    if (now - lastModified <= oneMinute) {
-      shouldRotate = false;
-    }
+  const cacheFile = path.join(cacheDir, filename);
+  
+  try {
+    await stat(cacheDir);
+  } catch (error) {
+    await mkdir(cacheDir, { recursive: true });
   }
-
-  if (shouldRotate) {
-    let retries = 3;
-    while (retries > 0) {
-      try {
-        const response = await axios.post(ENDPOINTS.ROTATE_COOKIES, JSON.stringify([0, "-0000000000000000000"]), {
-          headers: {
-            ...HEADERS.ROTATE_COOKIES,
-            Cookie: Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ')
-          },
-          proxy: proxy
-        });
-
-        if (response.status === 401) {
-          throw new Error('Authentication failed - invalid cookies');
-        }
-
-        if (response.status !== 200) {
-          throw new Error(`Cookie rotation failed with status ${response.status}`);
-        }
-
-        // Extract new __Secure-1PSIDTS from response cookies
-        const setCookies = response.headers['set-cookie'] || [];
-        let new1psidts = null;
-
-        for (const cookie of setCookies) {
-          if (cookie.includes('__Secure-1PSIDTS=')) {
-            const match = cookie.match(/__Secure-1PSIDTS=([^;]+)/);
-            if (match) {
-              new1psidts = match[1];
-              break;
-            }
-          }
-        }
-
-        if (new1psidts) {
-          // Cache the new cookie
-          fs.writeFileSync(cacheFile, new1psidts);
-          return new1psidts;
-        } else {
-          throw new Error('No new __Secure-1PSIDTS found in response');
-        }
-
-      } catch (error) {
-        console.error(`Cookie rotation failed (attempt ${4 - retries}/3):`, error.message);
-        retries--;
-        if (retries > 0) {
-          // Wait 1 second before retry
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        } else {
-          throw error;
-        }
-      }
-    }
-  } else {
-    // Use cached value
+  
+  // Check if cache file was modified in the last minute
+  let cacheModified = false;
+  try {
+    const stats = await stat(cacheFile);
+    cacheModified = Date.now() - stats.mtimeMs <= 60000;
+  } catch (error) {
+    // File doesn't exist or can't be accessed
+  }
+  
+  if (!cacheModified) {
     try {
-      return fs.readFileSync(cacheFile, 'utf8');
+      const response = await makeRequest(Endpoint.ROTATE_COOKIES, {
+        method: 'POST',
+        headers: Headers.ROTATE_COOKIES,
+        data: '[000,"-0000000000000000000"]'
+      }, 3, 300);
+      
+      if (response.statusCode === 401) {
+        throw new AuthError("Authentication failed during cookie rotation");
+      }
+      
+      if (response.cookies && response.cookies['__Secure-1PSIDTS']) {
+        await writeFile(cacheFile, response.cookies['__Secure-1PSIDTS']);
+        return response.cookies['__Secure-1PSIDTS'];
+      }
     } catch (error) {
-      console.warn('Failed to read cached cookie:', error.message);
+      if (error instanceof AuthError) {
+        throw error;
+      }
+      throw new Error(`Failed to rotate cookies: ${error.message}`);
     }
   }
-
-  return null;
+  
+  // Return cached value if recent rotation exists
+  try {
+    return await readFile(cacheFile, 'utf8');
+  } catch (error) {
+    throw new Error("No valid cached cookie available");
+  }
 }
 
+// Main Gemini Client
 class GeminiClient {
-  constructor(secure_1psid, secure_1psidts, proxy = null) {
+  constructor(secure1PSID = null, secure1PSIDTS = null, proxy = null, options = {}) {
     this.cookies = {};
     this.proxy = proxy;
     this.running = false;
     this.accessToken = null;
-    this.timeout = 30000; // 30s
-    this.autoClose = false;
-    this.closeDelay = 300000; // 5min
-    this.autoRefresh = true;
-    this.refreshInterval = 540000; // 9min (540 * 1000ms)
-    this.refreshTimer = null; // For background task
-    this.closeTimer = null; // For auto-close task
-    this.gems = new GemsCollection(); // Collection of available gems
+    this.timeout = options.timeout || 300;
+    this.autoClose = options.autoClose || false;
+    this.closeDelay = options.closeDelay || 300;
+    this.closeTask = null;
+    this.autoRefresh = options.autoRefresh !== false; // Default true
+    this.refreshInterval = options.refreshInterval || 540;
+    this._gems = null;
+    this.rotateTasks = new Map();
+    this.kwargs = options.kwargs || {};
 
-    if (secure_1psid) {
-      this.cookies['__Secure-1PSID'] = secure_1psid;
-      if (secure_1psidts) {
-        this.cookies['__Secure-1PSIDTS'] = secure_1psidts;
+    // Validate cookies
+    if (secure1PSID) {
+      this.cookies['__Secure-1PSID'] = secure1PSID;
+      if (secure1PSIDTS) {
+        this.cookies['__Secure-1PSIDTS'] = secure1PSIDTS;
       }
     }
   }
 
-  async init(timeout = this.timeout, auto_close = this.autoClose, close_delay = this.closeDelay, auto_refresh = this.autoRefresh, verbose = true) {
-    timeout = timeout ?? this.timeout;
+  get gems() {
+    if (this._gems === null) {
+      throw new Error("Gems not fetched yet. Call `GeminiClient.fetchGems()` method to fetch gems from gemini.google.com.");
+    }
+    return this._gems;
+  }
+
+  async init(timeout = 300, autoClose = false, closeDelay = 300, autoRefresh = true, refreshInterval = 540, verbose = true) {
     try {
-      const { accessToken, validCookies } = await this.getAccessToken(verbose);
+      const [accessToken, validCookies] = await this.getAccessToken(this.cookies, verbose);
+      
       this.accessToken = accessToken;
       this.cookies = validCookies;
       this.running = true;
       this.timeout = timeout;
-      this.autoClose = auto_close;
-      this.closeDelay = close_delay;
-      this.autoRefresh = auto_refresh;
+      this.autoClose = autoClose;
+      this.closeDelay = closeDelay;
+      
+      if (this.autoClose) {
+        await this.resetCloseTask();
+      }
 
-      // Start auto-refresh if enabled
+      this.autoRefresh = autoRefresh;
+      this.refreshInterval = refreshInterval;
+      
       if (this.autoRefresh) {
         this.startAutoRefresh();
-        if (verbose) log('INFO', 'Auto-refresh enabled.');
       }
 
-      // Start auto-close if enabled
-      if (this.autoClose) {
-        this.startAutoClose();
-        if (verbose) log('INFO', 'Auto-close enabled.');
+      if (verbose) {
+        logger.success("Gemini client initialized successfully.");
       }
-
-      if (verbose) log('INFO', 'Gemini client initialized successfully.');
     } catch (error) {
-      log('ERROR', `Failed to initialize client: ${error.message}`);
+      await this.close();
       throw error;
     }
   }
 
-  async getAccessToken(verbose = false) {
-    // Mimic get_access_token.py
-    const extraCookies = {};
-    try {
-      const response = await axios.get(ENDPOINTS.GOOGLE, { proxy: this.proxy });
-      if (response.status === 200) {
-        // Extract cookies from response
-        const setCookies = response.headers['set-cookie'] || [];
-        setCookies.forEach(cookie => {
-          const [nameValue] = cookie.split(';');
-          const [name, value] = nameValue.split('=');
-          extraCookies[name] = value;
-        });
-      }
-    } catch (e) {
-      // Ignore
+  async close(delay = 0) {
+    if (delay) {
+      await new Promise(resolve => setTimeout(resolve, delay * 1000));
     }
 
-    const cookiesToTry = [{ ...extraCookies, ...this.cookies }];
+    this.running = false;
 
-    for (const cookies of cookiesToTry) {
-      try {
-        const response = await axios.get(ENDPOINTS.INIT, {
-          headers: {
-            ...HEADERS.GEMINI,
-            Cookie: Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ')
-          },
-          proxy: this.proxy,
-          timeout: this.timeout
-        });
-
-        const match = response.data.match(/"SNlM0e":"(.*?)"/);
-        if (match) {
-          if (verbose) console.log('Access token obtained.');
-          return { accessToken: match[1], validCookies: cookies };
-        }
-      } catch (e) {
-        if (verbose) console.log('Failed to get access token with current cookies.');
-      }
+    if (this.closeTask) {
+      clearTimeout(this.closeTask);
+      this.closeTask = null;
     }
 
-    throw new Error('Failed to obtain access token. Check your cookies.');
+    // Cancel any auto-refresh tasks
+    for (const task of this.rotateTasks.values()) {
+      clearInterval(task);
+    }
+    this.rotateTasks.clear();
   }
 
-  async generateContent(prompt, files = [], model = 'unspecified', chat = null, gem = null) {
-    if (!this.running) await this.init();
-
-    const modelObj = getModel(model);
-
-    // Handle extensions (prompts starting with @)
-    let extension = null;
-    if (prompt.startsWith('@')) {
-      const match = prompt.match(/^(@\w+)\s*(.*)/);
-      if (match) {
-        extension = match[1].substring(1); // Remove @
-        prompt = match[2] || '';
-      }
+  async resetCloseTask() {
+    if (this.closeTask) {
+      clearTimeout(this.closeTask);
+      this.closeTask = null;
     }
+    this.closeTask = setTimeout(() => this.close(), this.closeDelay * 1000);
+  }
 
-    let fileList = null;
-    if (files.length > 0) {
-      fileList = [];
-      for (const file of files) {
-        const uploadId = await this.uploadFile(file);
-        fileList.push([[uploadId], path.basename(file)]);
-      }
-    }
-
-    const promptPart = fileList ? [prompt, 0, null, fileList] : [prompt];
-
-    const innerArray = [promptPart, null, (chat && chat.metadata) ? chat.metadata : null];
-
-    if (gem) {
-      innerArray.push(...Array(16).fill(null), gem);
-    }
-
-    // Add extension if present
-    if (extension) {
-      // Extensions are handled by modifying the prompt or headers
-      // This is a simplified implementation
-      log('INFO', `Using extension: ${extension}`);
-    }
-
-    const innerJson = JSON.stringify(innerArray);
-    const outerJson = JSON.stringify([null, innerJson]);
-
-    const data = {
-      at: this.accessToken,
-      'f.req': outerJson
-    };
-
-    let response;
-    let retries = 1;
-    while (retries >= 0) {
+  startAutoRefresh() {
+    const task = setInterval(async () => {
       try {
-        response = await axios.post(ENDPOINTS.GENERATE, new URLSearchParams(data), {
-          headers: {
-            ...HEADERS.GEMINI,
-            ...modelObj.header,
-            Cookie: Object.entries(this.cookies).map(([k, v]) => `${k}=${v}`).join('; ')
-          },
-          proxy: this.proxy,
-          timeout: this.timeout
-        });
-
-        if (response.status !== 200) {
-          throw new Error(`Request failed with status ${response.status}`);
+        const new1PSIDTS = await rotate1PSIDTS(this.cookies, this.proxy);
+        logger.debug(`Cookies refreshed. New __Secure-1PSIDTS: ${new1PSIDTS}`);
+        if (new1PSIDTS) {
+          this.cookies['__Secure-1PSIDTS'] = new1PSIDTS;
         }
-        break; // Success, exit loop
       } catch (error) {
-        if (error.message.includes('status code 400') && retries > 0) {
-          console.log('Request failed with 400, attempting to re-initialize client...');
-          await this.init(true); // Re-init with verbose
-          retries--;
-        } else {
-          throw error;
+        logger.warn("Failed to refresh cookies. Background auto refresh task canceled.", error);
+        clearInterval(task);
+        this.rotateTasks.delete(this.cookies['__Secure-1PSID']);
+      }
+    }, this.refreshInterval * 1000);
+    
+    this.rotateTasks.set(this.cookies['__Secure-1PSID'], task);
+  }
+
+  async getAccessToken(baseCookies, verbose = false) {
+    const tasks = [];
+    
+    // Base cookies passed directly on initializing client
+    if (baseCookies['__Secure-1PSID'] && baseCookies['__Secure-1PSIDTS']) {
+      tasks.push(this.sendAuthRequest({...baseCookies}));
+    } else if (verbose) {
+      logger.debug("Skipping loading base cookies. Either __Secure-1PSID or __Secure-1PSIDTS is not provided.");
+    }
+    
+    // Cached cookies in local file
+    const cacheDir = path.join(__dirname, 'temp');
+    if (baseCookies['__Secure-1PSID']) {
+      const filename = `.cached_1psidts_${baseCookies['__Secure-1PSID']}.txt`;
+      const cacheFile = path.join(cacheDir, filename);
+      
+      try {
+        const cached1PSIDTS = await readFile(cacheFile, 'utf8');
+        if (cached1PSIDTS) {
+          const cachedCookies = {
+            ...baseCookies,
+            '__Secure-1PSIDTS': cached1PSIDTS
+          };
+          tasks.push(this.sendAuthRequest(cachedCookies));
+        } else if (verbose) {
+          logger.debug("Skipping loading cached cookies. Cache file is empty.");
+        }
+      } catch (error) {
+        if (verbose) {
+          logger.debug("Skipping loading cached cookies. Cache file not found.");
         }
       }
     }
-
-    // Parse response following Python implementation
-    const responseText = response.data;
-    log('DEBUG', `Raw response length: ${responseText.length}`);
-
-    const lines = responseText.split('\n');
-    if (lines.length < 3) {
-      throw new Error('Invalid response format - not enough lines');
-    }
-
-    let responseJson;
+    
+    // Browser cookies
     try {
-      responseJson = JSON.parse(lines[2]);
-    } catch (e) {
-      log('ERROR', `Failed to parse response JSON: ${e.message}`);
-      throw new Error('Invalid JSON response from server');
+      const browserCookies = await loadBrowserCookies('google.com', verbose);
+      if (browserCookies && browserCookies['__Secure-1PSID']) {
+        const localCookies = {'__Secure-1PSID': browserCookies['__Secure-1PSID']};
+        if (browserCookies['__Secure-1PSIDTS']) {
+          localCookies['__Secure-1PSIDTS'] = browserCookies['__Secure-1PSIDTS'];
+        }
+        if (browserCookies['NID']) {
+          localCookies['NID'] = browserCookies['NID'];
+        }
+        tasks.push(this.sendAuthRequest(localCookies));
+      } else if (verbose) {
+        logger.debug("Skipping loading local browser cookies. Login to gemini.google.com in your browser first.");
+      }
+    } catch (error) {
+      if (verbose) {
+        logger.debug("Skipping loading local browser cookies. Error:", error.message);
+      }
+    }
+    
+    // Execute all auth attempts
+    for (let i = 0; i < tasks.length; i++) {
+      try {
+        const [response, requestCookies] = await tasks[i];
+        const match = response.data.match(/"SNlM0e":"(.*?)"/);
+        if (match) {
+          if (verbose) {
+            logger.debug(`Init attempt (${i + 1}/${tasks.length}) succeeded. Initializing client...`);
+          }
+          return [match[1], requestCookies];
+        } else if (verbose) {
+          logger.debug(`Init attempt (${i + 1}/${tasks.length}) failed. Cookies invalid.`);
+        }
+      } catch (error) {
+        if (verbose) {
+          logger.debug(`Init attempt (${i + 1}/${tasks.length}) failed with error: ${error.message}`);
+        }
+      }
+    }
+    
+    throw new AuthError(
+      "Failed to initialize client. SECURE_1PSIDTS could get expired frequently, please make sure cookie values are up to date. " +
+      `(Failed initialization attempts: ${tasks.length})`
+    );
+  }
+  
+  async sendAuthRequest(cookies) {
+    const response = await makeRequest(Endpoint.INIT, {
+      method: 'GET',
+      headers: {
+        ...Headers.GEMINI,
+        'Cookie': formatCookies(cookies)
+      }
+    });
+    
+    return [response, cookies];
+  }
+
+  async generateContent(prompt, files = null, model = Model.UNSPECIFIED, gem = null, chat = null, options = {}) {
+    if (!prompt) {
+      throw new Error("Prompt cannot be empty.");
     }
 
-    log('DEBUG', `Response JSON length: ${responseJson.length}`);
+    if (typeof model === 'string') {
+      model = getModelByName(model);
+    }
 
-    let body = null;
-    let bodyIndex = 0;
+    let gemId = null;
+    if (gem instanceof Gem) {
+      gemId = gem.id;
+    } else if (typeof gem === 'string') {
+      gemId = gem;
+    }
 
-    for (let partIndex = 0; partIndex < responseJson.length; partIndex++) {
-      const part = responseJson[partIndex];
-      if (!part || !Array.isArray(part)) {
-        continue;
+    if (this.autoClose) {
+      await this.resetCloseTask();
+    }
+
+    try {
+      // Prepare file uploads if any
+      let fileData = null;
+      if (files && files.length > 0) {
+        fileData = [];
+        for (const file of files) {
+          const fileId = await this.uploadFile(file);
+          const fileName = this.parseFileName(file);
+          fileData.push([[fileId], fileName]);
+        }
       }
 
+      // Prepare request payload
+      const payload = fileData ? 
+        [prompt, 0, null, fileData] : 
+        [prompt];
+      
+      if (chat && chat.metadata) {
+        payload.push(chat.metadata);
+      }
+      
+      if (gemId) {
+        // Add 16 nulls + gemId as in Python version
+        for (let i = 0; i < 16; i++) {
+          payload.push(null);
+        }
+        payload.push(gemId);
+      }
+
+      const requestData = {
+        at: this.accessToken,
+        'f.req': JSON.stringify([null, JSON.stringify(payload)])
+      };
+
+      const response = await makeRequest(Endpoint.GENERATE, {
+        method: 'POST',
+        headers: {
+          ...Headers.GEMINI,
+          ...model.modelHeader,
+          'Cookie': formatCookies(this.cookies)
+        },
+        data: new URLSearchParams(requestData).toString(),
+        timeout: this.timeout * 1000
+      }, 3, 300);
+
+      if (response.statusCode !== 200) {
+        await this.close();
+        throw new APIError(`Failed to generate contents. Request failed with status code ${response.statusCode}`);
+      }
+
+      // Parse response
+      const responseLines = response.data.split('\n');
+      let responseJson;
       try {
-        if (part[2]) {
+        responseJson = JSON.parse(responseLines[2]);
+      } catch (e) {
+        await this.close();
+        throw new APIError("Failed to parse response JSON");
+      }
+
+      let body = null;
+      let bodyIndex = 0;
+      
+      for (let partIndex = 0; partIndex < responseJson.length; partIndex++) {
+        const part = responseJson[partIndex];
+        try {
           const mainPart = JSON.parse(part[2]);
-          if (mainPart && mainPart[4]) {
-            body = mainPart;
+          if (mainPart[4]) {
             bodyIndex = partIndex;
-            log('DEBUG', `Found body at part index ${partIndex}`);
+            body = mainPart;
             break;
           }
+        } catch (e) {
+          continue;
         }
-      } catch (e) {
-        log('DEBUG', `Failed to parse part ${partIndex}: ${e.message}`);
-        continue;
       }
-    }
 
-    if (!body) {
-      log('ERROR', 'No valid response body found');
-      // Check for error codes
-      try {
-        if (responseJson[0] && responseJson[0][5] && responseJson[0][5][2] && responseJson[0][5][2][0] && responseJson[0][5][2][0][1] && responseJson[0][5][2][0][1][0]) {
+      if (!body) {
+        await this.close();
+        
+        // Check for specific error codes
+        try {
           const errorCode = responseJson[0][5][2][0][1][0];
           switch (errorCode) {
-            case 1037:
-              throw new Error('Usage limit of the model has exceeded. Please try switching to another model.');
-            case 1052:
-              throw new Error('The specified model is not available. Please update gemini_webapi to the latest version.');
-            case 1060:
-              throw new Error('Your IP address is temporarily blocked by Google. Please try using a proxy or waiting.');
+            case ErrorCode.USAGE_LIMIT_EXCEEDED:
+              throw new UsageLimitExceeded(
+                `Failed to generate contents. Usage limit of ${model.modelName} model has exceeded. Please try switching to another model.`
+              );
+            case ErrorCode.MODEL_INCONSISTENT:
+              throw new ModelInvalid(
+                "Failed to generate contents. The specified model is inconsistent with the chat history. Please make sure to pass the same " +
+                "`model` parameter when starting a chat session with previous metadata."
+              );
+            case ErrorCode.MODEL_HEADER_INVALID:
+              throw new ModelInvalid(
+                "Failed to generate contents. The specified model is not available. Please update to the latest version. " +
+                "If the error persists, please report it."
+              );
+            case ErrorCode.IP_TEMPORARILY_BLOCKED:
+              throw new TemporarilyBlocked(
+                "Failed to generate contents. Your IP address is temporarily blocked by Google. Please try using a proxy or waiting for a while."
+              );
             default:
-              throw new Error(`Server error with code ${errorCode}`);
+              throw new APIError("Failed to generate contents. Invalid response data received.");
           }
+        } catch (e) {
+          if (e instanceof GeminiError) {
+            throw e;
+          }
+          throw new APIError("Failed to generate contents. Invalid response data received.");
         }
-      } catch (e) {
-        if (e.message.includes('Usage limit') || e.message.includes('model') || e.message.includes('IP') || e.message.includes('Server error')) {
-          throw e;
-        }
-      }
-      throw new Error('No valid response body found');
-    }
-
-    // Ensure body[4] exists and is an array
-    if (!body[4] || !Array.isArray(body[4])) {
-      log('ERROR', 'Invalid response structure: body[4] is not an array');
-      throw new Error('Invalid response structure from server');
-    }
-
-    // Parse candidates
-    const candidates = [];
-    for (let candidateIndex = 0; candidateIndex < body[4].length; candidateIndex++) {
-      const candidate = body[4][candidateIndex];
-
-      // Add null checks for candidate structure
-      if (!candidate || !Array.isArray(candidate)) {
-        log('WARNING', `Invalid candidate at index ${candidateIndex}, skipping`);
-        continue;
       }
 
-      let text = null;
-      if (candidate[1] && candidate[1][0]) {
-        text = candidate[1][0];
-      } else if (candidate[2] && candidate[2][0]) {
-        // Try alternative location for text
-        text = candidate[2][0];
-      } else {
-        log('WARNING', `No text found in candidate ${candidateIndex}`);
-        text = '';
-      }
-
-      // Handle special cases
-      if (text && text.startsWith('http://googleusercontent.com/card_content/')) {
-        text = (candidate[22] && candidate[22][0]) || text;
-      }
-
-      candidates.push({
-        rcid: candidate[0] || null,
-        text: text,
-        thoughts: (candidate[37] && candidate[37][0] && candidate[37][0][0]) || null
-      });
-    }
-
-    if (candidates.length === 0) {
-      log('ERROR', 'No candidates found in response');
-      log('DEBUG', `Body structure: ${JSON.stringify(body, null, 2).substring(0, 500)}...`);
-
-      // Try alternative parsing approaches
-      log('INFO', 'Attempting alternative parsing...');
-
-      // Try to find text in different locations
-      let fallbackText = '';
-      try {
-        // Look for text in various possible locations
-        if (body[4] && body[4][0] && body[4][0][1] && body[4][0][1][0]) {
-          fallbackText = body[4][0][1][0];
-        } else if (body[2] && body[2][0]) {
-          fallbackText = body[2][0];
-        } else if (body[1] && typeof body[1] === 'string') {
-          fallbackText = body[1];
+      // Parse candidates from response
+      const candidates = [];
+      for (let candidateIndex = 0; candidateIndex < body[4].length; candidateIndex++) {
+        const candidate = body[4][candidateIndex];
+        let text = candidate[1][0];
+        
+        // Handle special card content
+        if (text.match(/^http:\/\/googleusercontent\.com\/card_content\/\d+/)) {
+          text = candidate[22] && candidate[22][0] ? candidate[22][0] : text;
         }
 
-        if (fallbackText) {
-          log('INFO', 'Found text using fallback parsing');
-          candidates.push({
-            rcid: null,
-            text: fallbackText,
-            thoughts: null
-          });
-        } else {
-          throw new Error('No text found in any location');
+        let thoughts = null;
+        try {
+          thoughts = candidate[37][0][0];
+        } catch (e) {
+          // thoughts remains null
         }
-      } catch (e) {
-        log('ERROR', `Fallback parsing also failed: ${e.message}`);
-        throw new Error('No output data found in response');
-      }
-    }
 
-    // Parse images from response
-    const images = [];
-    try {
-      if (body[4] && body[4][0] && body[4][0][12]) {
-        const imageData = body[4][0][12];
-        if (Array.isArray(imageData)) {
-          for (const img of imageData) {
-            if (img && img[0] && img[0][0]) {
-              const imgObj = img[0][0];
-              const title = (imgObj && imgObj[1]) || '';
-              const url = (imgObj && imgObj[0]) || '';
-              const alt = (imgObj && imgObj[2]) || '';
-
-              if (url) {
-                // Determine if it's generated or web image
-                const isGenerated = url.includes('generative') || title.includes('generated');
-                const imageClass = isGenerated ? GeneratedImage : WebImage;
-                images.push(new imageClass(title, url, alt));
-              }
+        // Parse web images
+        const webImages = [];
+        try {
+          if (candidate[12] && candidate[12][1]) {
+            for (const webImage of candidate[12][1]) {
+              webImages.push(new WebImage(
+                webImage[0][0][0],
+                webImage[7][0],
+                webImage[0][4],
+                this.proxy
+              ));
             }
           }
+        } catch (e) {
+          // Skip web images if parsing fails
         }
-      }
-    } catch (e) {
-      log('WARNING', `Failed to parse images: ${e.message}`);
-    }
 
-    const result = new ModelOutput(
-      candidates[0].text,
-      candidates,
-      body[1],
-      candidates[0].rcid,
-      images,
-      candidates[0].thoughts
-    );
+        // Parse generated images
+        const generatedImages = [];
+        try {
+          if (candidate[12] && candidate[12][7] && candidate[12][7][0]) {
+            let imgBody = null;
+            for (let imgPartIndex = bodyIndex; imgPartIndex < responseJson.length; imgPartIndex++) {
+              const part = responseJson[imgPartIndex];
+              try {
+                const imgPart = JSON.parse(part[2]);
+                if (imgPart[4] && imgPart[4][candidateIndex] && imgPart[4][candidateIndex][12] && 
+                    imgPart[4][candidateIndex][12][7] && imgPart[4][candidateIndex][12][7][0]) {
+                  imgBody = imgPart;
+                  break;
+                }
+              } catch (e) {
+                continue;
+              }
+            }
 
-    console.log("Response metadata from body[1]:", body[1]);
-    console.log("RCID from candidate:", candidates[0].rcid);
+            if (!imgBody) {
+              throw new ImageGenerationError(
+                "Failed to parse generated images. Please update to the latest version. " +
+                "If the error persists, please report it."
+              );
+            }
 
-    // Update chat metadata if chat session provided
-    if (chat) {
-      if (result.metadata) {
-        // Ensure metadata is an array
-        let metadata = Array.isArray(result.metadata) ? result.metadata : [result.metadata];
-        // Ensure it has at least 2 elements (cid, rid), add rcid as third
-        if (metadata.length >= 2) {
-          metadata[2] = result.rcid;
-        } else {
-          // If metadata doesn't have enough elements, create proper structure
-          metadata = [metadata[0] || null, metadata[1] || null, result.rcid];
+            const imgCandidate = imgBody[4][candidateIndex];
+            text = text.replace(/http:\/\/googleusercontent\.com\/image_generation_content\/\d+/, "").trim();
+
+            for (let imageIndex = 0; imageIndex < imgCandidate[12][7][0].length; imageIndex++) {
+              const generatedImage = imgCandidate[12][7][0][imageIndex];
+              const title = generatedImage[3][6] ? 
+                `[Generated Image ${generatedImage[3][6]}]` : "[Generated Image]";
+              
+              let alt = "";
+              if (generatedImage[3][5] && generatedImage[3][5].length > imageIndex) {
+                alt = generatedImage[3][5][imageIndex];
+              } else if (generatedImage[3][5] && generatedImage[3][5].length > 0) {
+                alt = generatedImage[3][5][0];
+              }
+
+              generatedImages.push(new GeneratedImage(
+                generatedImage[0][3][3],
+                title,
+                alt,
+                this.proxy,
+                this.cookies
+              ));
+            }
+          }
+        } catch (e) {
+          if (e instanceof ImageGenerationError) {
+            throw e;
+          }
+          // Skip generated images if parsing fails
         }
-        chat.metadata = metadata;
-      }
-    }
 
-    return result;
+        candidates.push(new Candidate(
+          candidate[0],
+          text,
+          thoughts,
+          webImages,
+          generatedImages
+        ));
+      }
+
+      if (candidates.length === 0) {
+        throw new GeminiError("Failed to generate contents. No output data found in response.");
+      }
+
+      const output = new ModelOutput(body[1], candidates);
+      
+      if (chat instanceof ChatSession) {
+        chat.lastOutput = output;
+      }
+
+      return output;
+    } catch (error) {
+      if (error instanceof TimeoutError) {
+        throw new TimeoutError(
+          "Generate content request timed out, please try again. If the problem persists, " +
+          "consider setting a higher `timeout` value when initializing GeminiClient."
+        );
+      }
+      throw error;
+    }
   }
 
   async uploadFile(filePath) {
-    const fileBuffer = fs.readFileSync(filePath);
-    const form = new FormData();
-    form.append('file', fileBuffer, path.basename(filePath));
-
-    const response = await axios.post(ENDPOINTS.UPLOAD, form, {
-      headers: {
-        ...HEADERS.UPLOAD,
-        ...form.getHeaders()
-      },
-      proxy: this.proxy
-    });
-
-    if (response.status !== 200) {
-      throw new Error(`Upload failed with status ${response.status}`);
+    try {
+      const fileData = await readFile(filePath);
+      
+      const response = await makeRequest(Endpoint.UPLOAD, {
+        method: 'POST',
+        headers: Headers.UPLOAD,
+        data: fileData
+      });
+      
+      return response.data;
+    } catch (error) {
+      throw new Error(`Failed to upload file: ${error.message}`);
     }
-
-    return response.data;
   }
 
-  startChat(metadata = null, model = 'unspecified', gem = null) {
-    return new ChatSession(this, metadata, model, gem);
+  parseFileName(filePath) {
+    return path.basename(filePath);
   }
 
-  // Start the background auto-refresh task
-  startAutoRefresh() {
-    // Clear any existing timer
-    if (this.refreshTimer) {
-      clearInterval(this.refreshTimer);
-    }
+  async fetchGems(includeHidden = false) {
+    const response = await this._batchExecute([
+      new RPCData(
+        GRPC.LIST_GEMS,
+        includeHidden ? "[4]" : "[3]",
+        "system"
+      ),
+      new RPCData(
+        GRPC.LIST_GEMS,
+        "[2]",
+        "custom"
+      )
+    ]);
 
-    console.log(`Starting auto-refresh every ${this.refreshInterval / 1000} seconds`);
+    try {
+      const responseJson = JSON.parse(response.data.split('\n')[2]);
+      let predefinedGems = [];
+      let customGems = [];
 
-    // Set up periodic refresh
-    this.refreshTimer = setInterval(async () => {
-      try {
-        console.log('Attempting to refresh cookies...');
-        const new1psidts = await rotate1psidts(this.cookies, this.proxy);
-
-        if (new1psidts) {
-          this.cookies['__Secure-1PSIDTS'] = new1psidts;
-          console.log('Cookies refreshed successfully');
-        } else {
-          console.log('No new cookies received');
-        }
-      } catch (error) {
-        console.error('Auto-refresh failed:', error.message);
-
-        // If authentication fails, stop auto-refresh
-        if (error.message.includes('Authentication failed') ||
-            error.message.includes('401')) {
-          console.log('Stopping auto-refresh due to authentication failure');
-          this.stopAutoRefresh();
+      for (const part of responseJson) {
+        if (part[part.length - 1] === "system") {
+          const parsed = JSON.parse(part[2]);
+          predefinedGems = parsed[2] || [];
+        } else if (part[part.length - 1] === "custom") {
+          const parsed = JSON.parse(part[2]);
+          if (parsed && parsed.length > 2) {
+            customGems = parsed[2] || [];
+          }
         }
       }
-    }, this.refreshInterval);
-  }
 
-  // Stop the background auto-refresh task
-  stopAutoRefresh() {
-    if (this.refreshTimer) {
-      clearInterval(this.refreshTimer);
-      this.refreshTimer = null;
-      log('INFO', 'Auto-refresh stopped');
-    }
-  }
+      if (!predefinedGems && !customGems) {
+        throw new Error("No gems found in response");
+      }
 
-  // Start the background auto-close task
-  startAutoClose() {
-    // Clear any existing timer
-    if (this.closeTimer) {
-      clearTimeout(this.closeTimer);
-    }
+      const gems = new GemJar();
 
-    log('INFO', `Starting auto-close after ${this.closeDelay / 1000} seconds of inactivity`);
+      // Add predefined gems
+      for (const gem of predefinedGems) {
+        gems.set(gem[0], new Gem(
+          gem[0],
+          gem[1][0],
+          gem[1][1],
+          gem[2] && gem[2][0] || null,
+          true
+        ));
+      }
 
-    // Set timeout for auto-close
-    this.closeTimer = setTimeout(async () => {
-      log('INFO', 'Auto-closing client due to inactivity');
+      // Add custom gems
+      for (const gem of customGems) {
+        gems.set(gem[0], new Gem(
+          gem[0],
+          gem[1][0],
+          gem[1][1],
+          gem[2] && gem[2][0] || null,
+          false
+        ));
+      }
+
+      this._gems = gems;
+      return gems;
+    } catch (error) {
       await this.close();
-    }, this.closeDelay);
-  }
-
-  // Stop the background auto-close task
-  stopAutoClose() {
-    if (this.closeTimer) {
-      clearTimeout(this.closeTimer);
-      this.closeTimer = null;
-      log('INFO', 'Auto-close stopped');
+      logger.debug(`Invalid response: ${response.data}`);
+      throw new APIError(
+        "Failed to fetch gems. Invalid response data received. Client will try to re-initialize on next request."
+      );
     }
   }
 
-  // Close the client and clean up resources
-  async close() {
-    this.running = false;
-    this.stopAutoRefresh();
-    this.stopAutoClose();
+  async createGem(name, prompt, description = "") {
+    const response = await this._batchExecute([
+      new RPCData(
+        GRPC.CREATE_GEM,
+        JSON.stringify([[
+          name,
+          description,
+          prompt,
+          null,
+          null,
+          null,
+          null,
+          null,
+          0,
+          null,
+          1,
+          null,
+          null,
+          null,
+          []
+        ]])
+      )
+    ]);
 
-    // Clear access token
-    this.accessToken = null;
-
-    log('INFO', 'Gemini client closed');
-  }
-
-  async fetchGems(include_hidden = false) {
-    if (!this.running) await this.init();
-
-    // This is a simplified implementation
-    // In reality, this would make a request to fetch available gems
-    // For now, we'll create some example gems
-    const exampleGems = [
-      new Gem('coding-partner', 'Coding Partner', 'You are a helpful coding assistant.', 'A gem for coding help', true),
-      new Gem('writing-assistant', 'Writing Assistant', 'You are a professional writing assistant.', 'A gem for writing help', true)
-    ];
-
-    this.gems = new GemsCollection(exampleGems);
-    return this.gems;
-  }
-
-  async createGem(name, prompt, description = '') {
-    if (!this.running) await this.init();
-
-    // Simplified implementation - in reality would make API call
-    const gemId = `custom-${Date.now()}`;
-    const newGem = new Gem(gemId, name, prompt, description, false);
-    this.gems.gems.push(newGem);
-    return newGem;
-  }
-
-  async updateGem(gem, name, prompt, description) {
-    if (!this.running) await this.init();
-
-    // Find and update the gem
-    const existingGem = typeof gem === 'string' ? this.gems.get(gem) : gem;
-    if (!existingGem) {
-      throw new Error('Gem not found');
+    try {
+      const responseJson = JSON.parse(response.data.split('\n')[2]);
+      const gemId = JSON.parse(responseJson[0][2])[0];
+      
+      return new Gem(
+        gemId,
+        name,
+        description,
+        prompt,
+        false
+      );
+    } catch (error) {
+      await this.close();
+      logger.debug(`Invalid response: ${response.data}`);
+      throw new APIError(
+        "Failed to create gem. Invalid response data received. Client will try to re-initialize on next request."
+      );
     }
+  }
 
-    existingGem.name = name;
-    existingGem.prompt = prompt;
-    existingGem.description = description;
+  async updateGem(gem, name, prompt, description = "") {
+    const gemId = gem instanceof Gem ? gem.id : gem;
 
-    // In reality, would make API call to update
-    return existingGem;
+    await this._batchExecute([
+      new RPCData(
+        GRPC.UPDATE_GEM,
+        JSON.stringify([
+          gemId,
+          [
+            name,
+            description,
+            prompt,
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            null,
+            1,
+            null,
+            null,
+            null,
+            [],
+            0
+          ]
+        ])
+      )
+    ]);
+
+    return new Gem(
+      gemId,
+      name,
+      description,
+      prompt,
+      false
+    );
   }
 
   async deleteGem(gem) {
-    if (!this.running) await this.init();
+    const gemId = gem instanceof Gem ? gem.id : gem;
 
-    const gemToDelete = typeof gem === 'string' ? this.gems.get(gem) : gem;
-    if (!gemToDelete) {
-      throw new Error('Gem not found');
+    await this._batchExecute([
+      new RPCData(
+        GRPC.DELETE_GEM,
+        JSON.stringify([gemId])
+      )
+    ]);
+  }
+
+  async _batchExecute(payloads) {
+    try {
+      const response = await makeRequest(Endpoint.BATCH_EXEC, {
+        method: 'POST',
+        headers: {
+          ...Headers.GEMINI,
+          'Cookie': formatCookies(this.cookies)
+        },
+        data: new URLSearchParams({
+          at: this.accessToken,
+          'f.req': JSON.stringify([payloads.map(p => p.serialize())])
+        }).toString(),
+        timeout: this.timeout * 1000
+      }, 3, 300);
+
+      if (response.statusCode !== 200) {
+        await this.close();
+        throw new APIError(`Batch execution failed with status code ${response.statusCode}`);
+      }
+
+      return response;
+    } catch (error) {
+      if (error instanceof TimeoutError) {
+        throw new TimeoutError(
+          "Batch execute request timed out, please try again. If the problem persists, " +
+          "consider setting a higher `timeout` value when initializing GeminiClient."
+        );
+      }
+      throw error;
     }
+  }
 
-    this.gems.gems = this.gems.gems.filter(g => g.id !== gemToDelete.id);
-    // In reality, would make API call to delete
-    return gemToDelete;
+  startChat(metadata = null, cid = null, rid = null, rcid = null, model = Model.UNSPECIFIED, gem = null) {
+    return new ChatSession(this, metadata, cid, rid, rcid, model, gem);
   }
 }
 
+class ChatSession {
+  constructor(geminiClient, metadata = null, cid = null, rid = null, rcid = null, model = Model.UNSPECIFIED, gem = null) {
+    this._metadata = [null, null, null];
+    this.geminiClient = geminiClient;
+    this.lastOutput = null;
+    this.model = model;
+    this.gem = gem;
+
+    if (metadata) {
+      this.metadata = metadata;
+    }
+    if (cid) {
+      this.cid = cid;
+    }
+    if (rid) {
+      this.rid = rid;
+    }
+    if (rcid) {
+      this.rcid = rcid;
+    }
+  }
+
+  toString() {
+    return `ChatSession(cid='${this.cid}', rid='${this.rid}', rcid='${this.rcid}')`;
+  }
+
+  set lastOutput(value) {
+    this._lastOutput = value;
+    if (value instanceof ModelOutput) {
+      this.metadata = value.metadata;
+      this.rcid = value.rcid;
+    }
+  }
+
+  get lastOutput() {
+    return this._lastOutput;
+  }
+
+  async sendMessage(prompt, files = null, options = {}) {
+    return await this.geminiClient.generateContent(
+      prompt,
+      files,
+      this.model,
+      this.gem,
+      this,
+      options
+    );
+  }
+
+  chooseCandidate(index) {
+    if (!this.lastOutput) {
+      throw new Error("No previous output data found in this chat session.");
+    }
+
+    if (index >= this.lastOutput.candidates.length) {
+      throw new Error(`Index ${index} exceeds the number of candidates in last model output.`);
+    }
+
+    this.lastOutput.chosen = index;
+    this.rcid = this.lastOutput.rcid;
+    return this.lastOutput;
+  }
+
+  get metadata() {
+    return this._metadata;
+  }
+
+  set metadata(value) {
+    if (value.length > 3) {
+      throw new Error("metadata cannot exceed 3 elements");
+    }
+    this._metadata = [...value];
+  }
+
+  get cid() {
+    return this._metadata[0];
+  }
+
+  set cid(value) {
+    this._metadata[0] = value;
+  }
+
+  get rid() {
+    return this._metadata[1];
+  }
+
+  set rid(value) {
+    this._metadata[1] = value;
+  }
+
+  get rcid() {
+    return this._metadata[2];
+  }
+
+  set rcid(value) {
+    this._metadata[2] = value;
+  }
+}
+
+// Helper function to get model by name
+function getModelByName(name) {
+  for (const key in Model) {
+    if (Model[key].modelName === name) {
+      return Model[key];
+    }
+  }
+  throw new Error(`Unknown model name: ${name}. Available models: ${Object.values(Model).map(m => m.modelName).join(', ')}`);
+}
+
+// Export the main classes and functions
 module.exports = {
   GeminiClient,
-  ModelOutput,
   ChatSession,
+  Gem,
+  GemJar,
+  Image,
   WebImage,
   GeneratedImage,
-  Gem,
-  GemsCollection,
-  setLogLevel
+  Candidate,
+  ModelOutput,
+  Model,
+  // Errors
+  AuthError,
+  APIError,
+  ImageGenerationError,
+  GeminiError,
+  TimeoutError,
+  UsageLimitExceeded,
+  ModelInvalid,
+  TemporarilyBlocked,
+  // Utility functions
+  rotate1PSIDTS,
+  getModelByName,
+  setLogLevel,
+  logger
 };

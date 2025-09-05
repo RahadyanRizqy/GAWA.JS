@@ -8,6 +8,7 @@ const config = require('../config.env.js');
 async function handleChat(c, gemId) {
     const user = c.get('user');
 
+    let files_arr = [];
     try {
         // Parse form data
         const formData = await c.req.formData();
@@ -17,7 +18,6 @@ async function handleChat(c, gemId) {
         if (!message) throw errorResponse('Message is required', 400);
 
         // Handle file upload
-        let files_arr = [];
         if (files) {
             let tempDir;
             if (process.env.BUNDLED) {
