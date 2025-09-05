@@ -207,7 +207,7 @@ class ChatSession {
     return response;
   }
 
-  chooseCandidate(index = 0) {
+  choose_candidate(index = 0) {
     if (!this.last_output || !this.last_output.candidates || index >= this.last_output.candidates.length) {
       throw new Error('Invalid candidate index');
     }
