@@ -3,7 +3,7 @@
     <img src="https://raw.githubusercontent.com/RahadyanRizqy/GAWA.JS/refs/heads/main/assets/gawa-js.png" width="75%" alt="Gemini Banner" align="center">
 </p>
 
-# <img src="https://raw.githubusercontent.com/RahadyanRizqy/GAWA.JS/refs/heads/main/assets/icon.png" width="35px" alt="Gemini Icon" /> Gemini-API
+# <img src="https://raw.githubusercontent.com/RahadyanRizqy/GAWA.JS/refs/heads/main/assets/gemini-icon.png" width="35px" alt="Gemini Icon" /> Gemini-API
 
 A JavaScript implementation of the Gemini AI Wrapper API, providing Node.js modules. This project is a remake of the original Python version available at [HanaokaYuzu/Gemini-API](https://github.com/HanaokaYuzu/Gemini-API.git).
 
