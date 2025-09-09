@@ -10,7 +10,7 @@ async function main() {
     const { GeminiClient } = await gawa;
 
     const client = new GeminiClient({
-        cookieHeader: ''
+        cookieHeader: '' // paste your header string based cookies from CookieEditor extension here
     });
 
     await client.init();
