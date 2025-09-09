@@ -5,7 +5,7 @@
 
 # <img src="https://raw.githubusercontent.com/RahadyanRizqy/GAWA.JS/refs/heads/main/assets/gemini-icon.png" width="35px" alt="Gemini Icon" /> Gemini-API
 
-A JavaScript implementation of the Gemini AI Wrapper API, providing Node.js modules. This project is a remake of the original Python version available at [HanaokaYuzu/Gemini-API](https://github.com/HanaokaYuzu/Gemini-API.git).
+A JavaScript implementation of the Gemini AI Wrapper API, providing Node.js modules. This project is a remake and direct translation of the original Python version available at [HanaokaYuzu/Gemini-API](https://github.com/HanaokaYuzu/Gemini-API.git) which is currently mimic the v1.15.2 (latest) version of the gemini_webapi.
 
 ## 🚀 Features
 - **Persistent Cookies** - Automatically refreshes cookies in background. Optimized for always-on services (currently tested).
