@@ -1,6 +1,6 @@
 {
     "name": "gawa.js",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "description": "Gemini AI Web API",
     "main": "src/index.js",
     "type": "module",
