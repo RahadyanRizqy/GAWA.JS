@@ -1,7 +1,6 @@
 import { running } from '../utils/decorators.js';
 import { RPCData } from '../core/rpc.js';
 import { GRPC } from '../utils/constants.js';
-import { APIError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
 class Gem {

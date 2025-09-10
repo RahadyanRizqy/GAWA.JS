@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import got from 'got';
 import { CookieJar } from 'tough-cookie';
-import * as html from 'html-escaper';
 import { logger } from '../utils/logger.js';
 
 class Image {

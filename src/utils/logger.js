@@ -1,5 +1,5 @@
 import util from 'util';
-let _handler_id = null;
+
 let _logLevel = "INFO";
 const LEVELS = ["TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
 

@@ -1,20 +1,24 @@
 import { Gem } from '../modules/gems.js';
 import axios from 'axios';
-import https from 'https';
 import path from 'path';
 import cookie from 'cookie';
-import { CookieJar } from 'tough-cookie';
 import { running } from '../utils/decorators.js';
 import { GemMixin } from '../modules/gems.js';
 import { Model } from './model.js';
-import { RPCData } from './rpc.js';
-import { GRPC, Endpoint, Headers, ErrorCode } from '../utils/constants.js';
-import { AuthError, APIError, TimeoutError, UsageLimitExceeded, ModelInvalid, TemporarilyBlocked, ImageGenerationError, GeminiError } from '../utils/errors.js';
+import { Endpoint, Headers, ErrorCode } from '../utils/constants.js';
+import { 
+    APIError, 
+    TimeoutError, 
+    UsageLimitExceeded, 
+    ModelInvalid, 
+    TemporarilyBlocked, 
+    ImageGenerationError, 
+    GeminiError 
+} from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { rotate1PSIDTS, getAccessToken, uploadFile, parseFileName, rotateTasks } from '../utils/utils.js';
 import { WebImage, GeneratedImage } from '../modules/images.js';
 import { Candidate, ModelOutput } from '../modules/output.js';
-import * as html from 'html-escaper';
 import { encryptMd } from '../utils/cryptmd.js';
 
 class GeminiClient extends GemMixin {

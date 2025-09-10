@@ -1,5 +1,4 @@
 import * as html from 'html-escaper';
-import { WebImage, GeneratedImage } from './images.js';
 
 class Candidate {
     constructor({ rcid, text, thoughts = null, webImages = [], generatedImages = [] }) {

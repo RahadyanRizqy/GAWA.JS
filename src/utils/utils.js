@@ -1,12 +1,10 @@
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import got from 'got';
 import { CookieJar } from 'tough-cookie';
 import * as tough from 'tough-cookie';
 import FormData from 'form-data';
 import * as https from 'https';
-import { HttpsProxyAgent } from 'https-proxy-agent';
 import { AuthError } from './errors.js';
 import { Endpoint, Headers } from './constants.js';
 import { logger } from './logger.js';
@@ -202,39 +200,10 @@ async function getAccessToken(_baseCookies, proxy = null, verbose = false) {
     throw new AuthError(`Failed to initialize client. (${tasks.length} attempts)`);
 }
 
-// async function uploadFile(filePath, proxy = null) {
-//     const fileBuffer = fs.readFileSync(filePath);
-//     const form = new FormData();
-//     form.append('file', fileBuffer, path.basename(filePath));
-
-//     const response = await axios.post(Endpoint.UPLOAD, form, {
-//         headers: {
-//         ...Headers.UPLOAD,
-//         ...form.getHeaders()
-//         },
-//         proxy: proxy
-//     });
-//     // console.log(response);
-
-//     if (response.status !== 200) {
-//         throw new Error(`Upload failed with status ${response.status}`);
-//     }
-
-//     return response.data;
-// }
-
 async function uploadFile(filePath, proxy = null) {
-    // console.log("Here 1");
-    // const fs = require('fs');
-    // console.log("Here 2");
-
     const fileBuffer = fs.readFileSync(filePath);
     const form = new FormData();
     form.append('file', fileBuffer, path.basename(filePath));
-
-    // const stream = fs.readFileSync(filePath);
-    // const form = new FormData();
-    // form.append('file', stream, path.basename(filePath));
 
     const response = await axios.post(Endpoint.UPLOAD, form, {
         headers: {
@@ -243,8 +212,6 @@ async function uploadFile(filePath, proxy = null) {
         },
         proxy: proxy
     });
-    // console.log(form.getHeaders());
-    // console.log(fileBuffer.length);
 
     if (response.status !== 200) {
         throw new Error(`Upload failed with status ${response.status}`);

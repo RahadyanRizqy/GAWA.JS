@@ -1,4 +1,5 @@
 import { APIError, ImageGenerationError } from './errors.js';
+
 function running(retry = 0) {
     return function (func) {
         async function wrapper(...args) {
