@@ -115,7 +115,7 @@ for (const image of response.images) {
 }
 ```
 
-For more advanced usage, see [`test-gawa.js`](test.js).
+For more advanced usage, see [`test.js`](test.js).
 
 ## 🔗 References
 - [HanaokaYuzu/Gemini-API](https://github.com/HanaokaYuzu/Gemini-API.git)
