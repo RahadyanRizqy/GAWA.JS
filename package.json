@@ -2,7 +2,7 @@
     "name": "gawa.js",
     "version": "1.0.0",
     "description": "Gemini AI Web API",
-    "main": "gemini.js",
+    "main": "src/gemini.js",
     "type": "module",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
@@ -16,7 +16,7 @@
     "author": "RahadyanRizqy",
     "license": "ISC",
     "exports": {
-        ".": "./gemini.cjs",
+        ".": "./src/gemini.js",
         "./core": "./src/core/index.js",
         "./utils": "./src/utils/index.js",
         "./modules": "./src/modules/index.js",
