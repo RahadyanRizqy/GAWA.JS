@@ -1,6 +1,6 @@
 # Gemini AI Wrapper API (JavaScript Version)
 <p align="center">
-    <img src="https://raw.githubusercontent.com/RahadyanRizqy/GAWA.JS/refs/heads/main/assets/gawa-js.png" width="75%" alt="Gemini Banner" align="center">
+    <img src="https://raw.githubusercontent.com/RahadyanRizqy/GAWA.JS/refs/heads/main/assets/gawa-js-v2.png" width="75%" alt="Gemini Banner" align="center">
 </p>
 
 # <img src="https://raw.githubusercontent.com/RahadyanRizqy/GAWA.JS/refs/heads/main/assets/gemini-icon.png" width="35px" alt="Gemini Icon" /> Gemini-API
