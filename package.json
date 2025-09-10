@@ -1,6 +1,6 @@
 {
     "name": "gawa.js",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Gemini AI Web API",
     "main": "src/gemini.js",
     "type": "module",
@@ -30,5 +30,9 @@
         "html-escaper": "^3.0.3",
         "https-proxy-agent": "^7.0.2",
         "tough-cookie": "^6.0.0"
+    },
+    "publishConfig": {
+        "access": "public"
     }
+
 }

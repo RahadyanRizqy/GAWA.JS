@@ -22,7 +22,7 @@ class Image {
     }
 
     async save({
-        dir = "temp",
+        dir = "images",
         filename = null,
         cookies = null,
         verbose = false,

@@ -14,7 +14,7 @@ import { logger } from './logger.js';
 const rotateTasks = new Map();
 
 async function rotate1PSIDTS(cookies, proxy = null) {
-    const tempDir = path.join(process.cwd(), "src", "temp");
+    const tempDir = path.join(process.cwd(), "cookies");
     const filename = `.cached_1psidts_${cookies.__Secure_1PSID}.txt`;
     const filePath = path.join(tempDir, filename);
 
@@ -105,7 +105,7 @@ async function sendRequest(cookies, proxy = null) {
 
 async function getAccessToken(_baseCookies, proxy = null, verbose = false) {
     const baseCookies = _baseCookies["baseCookies"];
-    const cacheDir = path.join(process.cwd(), "src", "temp");
+    const cacheDir = path.join(process.cwd(), "cookies");
     await fs.promises.mkdir(cacheDir, { recursive: true });
 
     const cookieJar = new CookieJar();
