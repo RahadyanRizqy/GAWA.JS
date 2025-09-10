@@ -7,7 +7,7 @@ import FormData from 'form-data';
 import * as https from 'https';
 import { AuthError } from './errors.js';
 import { Endpoint, Headers } from './constants.js';
-import { logger } from './logger.js';
+import logger from './logger.js';
 
 const rotateTasks = new Map();
 
@@ -201,14 +201,16 @@ async function getAccessToken(_baseCookies, proxy = null, verbose = false) {
 }
 
 async function uploadFile(filePath, proxy = null) {
-    const fileBuffer = fs.readFileSync(filePath);
+    // const fileBuffer = fs.readFileSync(filePath);
+    const fileBuffer = fs.createReadStream(filePath);
     const form = new FormData();
     form.append('file', fileBuffer, path.basename(filePath));
 
+    const formHeaders = form.getHeaders();
     const response = await axios.post(Endpoint.UPLOAD, form, {
         headers: {
         ...Headers.UPLOAD,
-        ...form.getHeaders()
+        ...formHeaders
         },
         proxy: proxy
     });
@@ -220,16 +222,4 @@ async function uploadFile(filePath, proxy = null) {
     return response.data;
 }
 
-async function parseFileName(file) {
-    try {
-        const stats = await fs.promises.stat(file);
-        if (!stats.isFile()) {
-            throw new Error(`${file} is not a valid file.`);
-        }
-    } catch (error) {
-        throw new Error(`${file} is not a valid file.`);
-    }
-    return path.basename(file);
-}
-
-export { rotate1PSIDTS, sendRequest, getAccessToken, uploadFile, parseFileName, rotateTasks };
+export { rotate1PSIDTS, sendRequest, getAccessToken, uploadFile, rotateTasks };

@@ -1,6 +1,5 @@
 export { GeminiClient, ChatSession } from './main.js';
 export { Model } from './model.js';
-export { ChatSession as ChatSessionAlias } from './main.js'; // if needed
 export {
     AuthError,
     APIError,
@@ -11,4 +10,4 @@ export {
     TemporarilyBlocked,
     ImageGenerationError
 } from '../utils/errors.js';
-export { setLogLevel } from '../utils/logger.js';
+export { default as logger } from '../utils/logger.js';

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import got from 'got';
 import { CookieJar } from 'tough-cookie';
-import { logger } from '../utils/logger.js';
+import logger from '../utils/logger.js';
 
 class Image {
     constructor({ url, title = "[Image]", alt = "", proxy = null }) {
@@ -81,7 +81,7 @@ class Image {
                         const dest = path.join(dir, filename);
                         await fs.promises.writeFile(dest, resp.rawBody);
 
-                        logger.log("✅ Saved:", dest);
+                        logger.info("✅ Saved:", dest);
                         return dest;
                     }
 
@@ -97,7 +97,7 @@ class Image {
             }
 
             const savedPath = await downloadImage(this.url, cookies, dir, filename);
-            if (verbose) logger.log(`Image saved as ${savedPath}`);
+            if (verbose) logger.info(`Image saved as ${savedPath}`);
             return savedPath;
 
             } catch (err) {

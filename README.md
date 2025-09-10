@@ -9,7 +9,7 @@ A JavaScript implementation of the Gemini AI Wrapper API, providing Node.js modu
 
 ## 🚀 Features
 - **Persistent Cookies** - Automatically refreshes cookies in background. Optimized for always-on services (currently tested).
-- **Image Generation** - Natively supports generating and modifying images with natural language.
+- **Image Generation** - Natively supports generating and modifying images with natural language. (60% success)
 - **System Prompt** - Supports customizing model's system prompt with [Gemini Gems](https://gemini.google.com/gems/view).
 - **Extension Support** - (_unimplemented yet_)
 - **Classified Outputs** - Categorizes texts, thoughts, web images and AI generated images in the response.

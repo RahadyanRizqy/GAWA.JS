@@ -1,7 +1,7 @@
 import { running } from '../utils/decorators.js';
 import { RPCData } from '../core/rpc.js';
 import { GRPC } from '../utils/constants.js';
-import { logger } from '../utils/logger.js';
+import logger from '../utils/logger.js';
 
 class Gem {
     constructor({ id, name, description = null, prompt = null, predefined }) {
@@ -33,7 +33,6 @@ class GemJar extends Map {
     }
 
     get({ id = null, name = null, defaultValue = null } = {}) {
-        // console.log("Here");
         if (id === null && name === null) {
             throw new Error("At least one of gem id or name must be provided.");
         }
@@ -58,7 +57,7 @@ class GemJar extends Map {
                     return gemObj;
                 }
             } return defaultValue;
-        } // Should be unreachable due to the assertion. return defaultValue; }
+        } // Should be unreachable due to the assertion. return defaultValue
     }
 
     toObject() {
@@ -108,12 +107,10 @@ class GemMixin {
             ],
             options
         );
-        // console.log(response);
 
         let predefinedGems = [];
         let customGems = [];
         try {
-            // console.log(response.data);
             const responseJson = JSON.parse(response.data.split("\n")[2]);
 
             for (const part of responseJson) {

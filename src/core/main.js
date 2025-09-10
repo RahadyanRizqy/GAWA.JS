@@ -15,8 +15,8 @@ import {
     ImageGenerationError, 
     GeminiError 
 } from '../utils/errors.js';
-import { logger } from '../utils/logger.js';
-import { rotate1PSIDTS, getAccessToken, uploadFile, parseFileName, rotateTasks } from '../utils/utils.js';
+import logger from '../utils/logger.js';
+import { rotate1PSIDTS, getAccessToken, uploadFile, rotateTasks } from '../utils/utils.js';
 import { WebImage, GeneratedImage } from '../modules/images.js';
 import { Candidate, ModelOutput } from '../modules/output.js';
 import { encryptMd } from '../utils/cryptmd.js';
@@ -58,11 +58,11 @@ class GeminiClient extends GemMixin {
         }
     }
     async init({
-        timeout = 300000,       // pakai ms (300s = 300000 ms)
+        timeout = 300000,       // use ms (300s = 300000 ms)
         autoClose = false,
         closeDelay = 300000,    // ms
         autoRefresh = true,
-        refreshInterval = 540000, // 540s = 9 menit
+        refreshInterval = 540000, // 540s = 9 minute
         verbose = true
     } = {}) {
         this.timeout = timeout;
@@ -86,7 +86,6 @@ class GeminiClient extends GemMixin {
                     ...Headers.GEMINI,
                     Cookie: this._cookiesToHeader(),
                 },
-                // axios ga punya cookies built-in, jadi manual via header
                 withCredentials: true
             });
 
@@ -122,7 +121,7 @@ class GeminiClient extends GemMixin {
             }
 
             if (verbose) {
-                logger.log("Gemini client initialized successfully.");
+                logger.info("Gemini client initialized successfully.");
             }
         } catch (err) {
             await this.close();
@@ -130,7 +129,6 @@ class GeminiClient extends GemMixin {
         }
     }
     async close(delay = 0) {
-    // tunggu sesuai delay (detik → ms)
         if (delay > 0) {
             await new Promise((resolve) => setTimeout(resolve, delay * 1000));
         }
@@ -150,7 +148,7 @@ class GeminiClient extends GemMixin {
         }
 
         if (this.verbose) {
-            logger.log("Gemini client closed.");
+            logger.info("Gemini client closed.");
         }
     }
 
@@ -199,26 +197,18 @@ class GeminiClient extends GemMixin {
     async generateContent({
         prompt,
         files = [],
-        model = Model.UNSPECIFIED,
+        model = Model.G_2_5_FLASH, // set to default
         gem = null,
         chat = null,
         options = {},
     }) {
-        // console.log(gem.id);
         if (!prompt) throw new Error("Prompt cannot be empty.");
 
-        // console.log("Here 1")
         if (!(model instanceof Model)) {
-            // console.log("Here 1a");
-            // console.log(Model.fromName("gemini-2.5-pro"));
             model = Model.fromName(model);
-            // console.log(model)
-            // console.log("Here 1b");
         }
 
-        // console.log("Here 2");
         const gemId = gem instanceof Gem ? gem.id : gem;
-        // console.log("Here 3");
 
         if (this.autoClose) {
             await this.resetCloseTask();
@@ -248,11 +238,10 @@ class GeminiClient extends GemMixin {
             at: this.accessToken,
             'f.req': outerJson
         };
-        // console.log(data);
+
         let response;
-        // console.log("Model header", model.modelHeader);
+
         try {
-            // console.log("Here 2");
             response = await this.client.post(
                 Endpoint.GENERATE,
                 new URLSearchParams(data),
@@ -261,8 +250,6 @@ class GeminiClient extends GemMixin {
                     timeout: this.timeout,
                 }
             );
-            // console.log(response);
-            // console.log("Here 2a");
         } catch (err) {
             if (err.code === "ECONNABORTED") {
                 throw new TimeoutError(
@@ -286,13 +273,11 @@ class GeminiClient extends GemMixin {
             throw new APIError("Failed to parse response. Invalid format.");
         }
 
-        // console.log("Res json", responseJson);
         let body = null;
         let bodyIndex = 0;
         for (let partIndex = 0; partIndex < responseJson.length; partIndex++) {
             try {
                 const mainPart = JSON.parse(responseJson[partIndex][2]);
-                // console.log(mainPart);
                 if (mainPart[4]) {
                     bodyIndex = partIndex;
                     body = mainPart;
@@ -435,7 +420,6 @@ class GeminiClient extends GemMixin {
     }
 
     async _batchExecute(payloads, extraOptions = {}) {
-        // console.log(payloads);
         try {
             const fReq = JSON.stringify([
                 payloads.map((payload) => payload.serialize())
@@ -586,7 +570,6 @@ class ChatSession {
         return this.lastOutput;
     }
 
-    // setter khusus untuk lastOutput agar otomatis update metadata & rcid
     setLastOutput(output) {
         this.lastOutput = output;
         if (output && output.metadata) {
