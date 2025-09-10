@@ -22,30 +22,33 @@ A JavaScript implementation of the Gemini AI Wrapper API, providing Node.js modu
 - Cloudflare D1 database (for token revocation)
 
 ## 🛠️ Installation
-1. **Clone the repository**
+A. **Install from NPM**
    ```bash
-   git clone <repository-url> gawajs
-   cd gawajs
+   npm i gawa.js
    ```
 
-2. **Install dependencies**
+B. **Clone from github**
    ```bash
-   npm install
+   git clone https://github.com/RahadyanRizqy/GAWA.JS.git gawajs
+   cd gawajs
+   ```
 
 ## ✨ Usage
 
 ### Basic Setup
 
 ```javascript
-import gawa from 'gawa.js';
-
-const { GeminiClient } = await gawa;
+import { GeminiClient} from 'gawa.js';
 
 const client = new GeminiClient({
     cookieHeader: 'your-cookie-header-here'
 });
 
-await client.init();
+(async() => {
+    await client.init();
+
+    // execute here ...
+})();
 ```
 
 ### Generate Content
