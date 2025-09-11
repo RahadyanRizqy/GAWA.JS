@@ -73,7 +73,6 @@ class GeminiClient extends GemMixin {
         this.verbose = verbose;
 
         try {
-            // bikin axios client
             const [accessToken, validCookies] = await getAccessToken({
                 baseCookies: this.cookies,
                 proxy: this.proxy,
