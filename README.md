@@ -121,3 +121,8 @@ For more advanced usage, see [`test.js`](test.js).
 - [HanaokaYuzu/Gemini-API](https://github.com/HanaokaYuzu/Gemini-API.git)
 - [Google AI Studio](https://ai.google.dev/tutorials/ai-studio_quickstart)
 - [acheong08/Bard](https://github.com/acheong08/Bard)
+
+## ❗ Notes (Known Failures)
+- The autorefresh logging might shows error but it works perfectly
+- Express.js API (currently tested) integration works for more than 2 days
+- Discord.js (currently tested) integration fails to send/receive message after couple of hours, this might be due to cookie refreshment mechanism that isn't suitable for discord event-driven message (need external API like Express.js/Fastify)
