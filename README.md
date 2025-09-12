@@ -36,9 +36,17 @@ B. **Clone from github**
 ## ✨ Usage
 
 ### Basic Setup
-
 ```javascript
-import { GeminiClient} from 'gawa.js';
+import { GeminiClient, setLogLevel } from 'gawa.js';
+
+/*
+By default setLogLevel is set to debug mode
+you may change my
+
+import { setLogLevel } from 'gawa.js';
+
+setLogLevel('debug');
+*/
 
 const client = new GeminiClient({
     cookieHeader: 'your-cookie-header-here'
