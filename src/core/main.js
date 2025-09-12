@@ -464,7 +464,7 @@ class ChatSession {
         cid = null,
         rid = null,
         rcid = null,
-        model = Model.UNSPECIFIED,
+        model = Model.G_2_5_FLASH,
         gem = null,
     }) {
         this._metadata = [null, null, null];
