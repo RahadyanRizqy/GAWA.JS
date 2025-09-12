@@ -1,7 +1,7 @@
 import { running } from '../utils/decorators.js';
 import { RPCData } from '../core/rpc.js';
 import { GRPC } from '../utils/constants.js';
-import logger from '../utils/logger.js';
+import { logger } from '../utils/logger.js';
 
 class Gem {
     constructor({ id, name, description = null, prompt = null, predefined }) {

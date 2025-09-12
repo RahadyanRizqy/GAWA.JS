@@ -1,8 +1,20 @@
-import Logger from 'js-logger';
+import winston from "winston";
 
-const logger = Logger;  // use logger as alias from Logger
+let defaultLevel = "debug"
 
-logger.useDefaults();
-logger.setLevel(logger.DEBUG);
+const setLogLevel = (level) => {
+    defaultLevel = level;
+}
 
-export default logger;
+const logger = winston.createLogger({
+    level: defaultLevel,
+    format: winston.format.combine(
+        winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss.SSS" }),
+        winston.format.printf(({ level, message, timestamp }) => {
+            return `${timestamp} | ${level.toUpperCase()} | ${message}`;
+        })
+    ),
+    transports: [new winston.transports.Console()],
+});
+
+export { logger, setLogLevel };

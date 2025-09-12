@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import got from 'got';
 import { CookieJar } from 'tough-cookie';
-import logger from '../utils/logger.js';
+import { logger } from '../utils/logger.js';
 
 class Image {
     constructor({ url, title = "[Image]", alt = "", proxy = null }) {

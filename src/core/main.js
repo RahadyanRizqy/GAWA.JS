@@ -15,7 +15,7 @@ import {
     ImageGenerationError, 
     GeminiError 
 } from '../utils/errors.js';
-import logger from '../utils/logger.js';
+import { logger } from '../utils/logger.js';
 import { rotate1PSIDTS, getAccessToken, uploadFile, rotateTasks } from '../utils/utils.js';
 import { WebImage, GeneratedImage } from '../modules/images.js';
 import { Candidate, ModelOutput } from '../modules/output.js';
