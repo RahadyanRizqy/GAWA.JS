@@ -1,9 +1,10 @@
 import { APIError, ImageGenerationError } from './errors.js';
+import { logger } from './logger.js';
 
 function running(maxRetry = 0) {
     return function (func) {
         async function wrapper(...args) {
-        let retries = maxRetry;
+        let retries = maxRetry;``
             while (retries >= 0) {
                 try {
                     if (!this.running) {
@@ -28,13 +29,12 @@ function running(maxRetry = 0) {
                     if (e instanceof ImageGenerationError) {
                         retries = Math.min(1, retries);
                     }
-                if (retries > 0) {
-                    console.log(`Retrying ${func.name}... (${retries} left)`);
-                    retries--;
-                    await new Promise((resolve) => setTimeout(resolve, 1000));
-                    continue;
-                }
-
+                    if (retries > 0) {
+                        logger.info(`Retrying ${func.name}... (${retries} left)`);
+                        retries--;
+                        await new Promise((resolve) => setTimeout(resolve, 1000));
+                        continue;
+                    }
                 throw e;
                 }
             }
