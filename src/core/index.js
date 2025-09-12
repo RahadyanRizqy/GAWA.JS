@@ -10,4 +10,4 @@ export {
     TemporarilyBlocked,
     ImageGenerationError
 } from '../utils/errors.js';
-export { default as logger } from '../utils/logger.js';
+export { logger, setLogLevel } from '../utils/logger.js';
