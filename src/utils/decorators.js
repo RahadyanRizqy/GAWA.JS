@@ -1,44 +1,48 @@
 import { APIError, ImageGenerationError } from './errors.js';
 
-function running(retry = 0) {
+function running(maxRetry = 0) {
     return function (func) {
         async function wrapper(...args) {
-            try {
-                if (!this.running) {
-                    await this.init({
-                        timeout: this.timeout,
-                        autoClose: this.autoClose,
-                        closeDelay: this.closeDelay,
-                        autoRefresh: this.autoRefresh,
-                        refreshInterval: this.refreshInterval,
-                        verbose: false
-                    });
+        let retries = maxRetry;
+            while (retries >= 0) {
+                try {
+                    if (!this.running) {
+                        await this.init({
+                            timeout: this.timeout,
+                            autoClose: this.autoClose,
+                            closeDelay: this.closeDelay,
+                            autoRefresh: this.autoRefresh,
+                            refreshInterval: this.refreshInterval,
+                            verbose: false,
+                        });
 
-                    if (this.running) {
-                        return await func(...args);
+                        if (!this.running) {
+                            throw new APIError(
+                                `Invalid function call: GeminiClient.${func.name}. Client initialization failed.`
+                            );
+                        }
                     }
 
-                    throw new APIError(
-                        `Invalid function call: GeminiClient.${func.__name__}. Client initialization failed.`
-                    )
-                } else {
-                    return await func(...args);
-                }
-            } catch (e) {
-                if (e instanceof ImageGenerationError) {
-                    retry = Math.min(1, retry);
-                }
-
-                if (retry > 0) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    return await wrapper(...args, retry - 1);
+                    return await func.apply(this, args);
+                } catch (e) {
+                    if (e instanceof ImageGenerationError) {
+                        retries = Math.min(1, retries);
+                    }
+                if (retries > 0) {
+                    console.log(`Retrying ${func.name}... (${retries} left)`);
+                    retries--;
+                    await new Promise((resolve) => setTimeout(resolve, 1000));
+                    continue;
                 }
 
                 throw e;
+                }
             }
         }
+
         return wrapper;
     };
 }
+
 
 export { running };
