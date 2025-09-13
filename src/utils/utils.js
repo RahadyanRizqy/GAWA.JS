@@ -42,7 +42,7 @@ async function rotate1PSIDTS(cookies, proxy = null) {
         "Cookie": cookieHeader,
     };
 
-    const response = await request(url, {
+    const response = await request(Endpoint.ROTATE_COOKIES, {
         method: "POST",
         headers,
         body: '[000,"-0000000000000000000"]',
