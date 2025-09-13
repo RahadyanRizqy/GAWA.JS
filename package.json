@@ -29,6 +29,7 @@
         "got": "^11.8.6",
         "html-escaper": "^3.0.3",
         "tough-cookie": "^6.0.0",
+        "undici": "^7.16.0",
         "winston": "^3.17.0"
     },
     "publishConfig": {

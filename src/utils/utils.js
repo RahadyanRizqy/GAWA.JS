@@ -8,6 +8,7 @@ import * as https from 'https';
 import { AuthError } from './errors.js';
 import { Endpoint, Headers } from './constants.js';
 import { logger } from './logger.js';
+import { request } from 'undici';
 
 const rotateTasks = new Map();
 
