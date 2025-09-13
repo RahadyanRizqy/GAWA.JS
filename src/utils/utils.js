@@ -57,6 +57,8 @@ async function rotate1PSIDTS(cookies, proxy = null) {
     }
 
     const setCookie = response.headers["set-cookie"];
+    logger.debug("[Refresh Cookie] Response Status", response.statusCode);
+    logger.debug("[Refresh Cookie] Set Cookie", setCookie);
     let new1psidts = null;
     if (setCookie) {
         const cookiesArr = Array.isArray(setCookie) ? setCookie : [setCookie];
