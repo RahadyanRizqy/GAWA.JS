@@ -11,11 +11,81 @@ import { logger } from './logger.js';
 
 const rotateTasks = new Map();
 
+// async function rotate1PSIDTS(cookies, proxy = null) {
+//     const tempDir = path.join(process.cwd(), "cookies");
+//     const filename = `.cached_1psidts_${cookies.__Secure_1PSID}.txt`;
+//     const filePath = path.join(tempDir, filename);
+
+//     // Create temp directory
+//     await fs.promises.mkdir(tempDir, { recursive: true });
+
+//     // Check cache (60-second window)
+//     try {
+//         const stats = await fs.promises.stat(filePath);
+//         if (Date.now() - stats.mtimeMs <= 60000) {
+//             return (await fs.promises.readFile(filePath, "utf8")).trim();
+//         }
+//     } catch {
+//         // File doesn't exist, proceed with request
+//     }
+
+//     // Setup cookie jar
+//     const cookieJar = new CookieJar();
+//     for (const [name, value] of Object.entries(cookies)) {
+//         cookieJar.setCookieSync(`${name}=${value}`, "https://gemini.google.com");
+//     }
+
+//     // Make the request
+//     const response = await axios.post(
+//         Endpoint.ROTATE_COOKIES,
+//         '[000,"-0000000000000000000"]',
+//         {
+//             headers: {
+//                 ...Headers.ROTATE_COOKIES,
+//                 Cookie: Object.entries(cookies)
+//                 .map(([k, v]) => `${k}=${v}`)
+//                 .join("; "),
+//             },
+//             proxy: proxy || false,
+//             httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+//             validateStatus: () => true,
+//         }
+//     );
+
+//     if (response.statusCode === 401) {
+//         throw new AuthError();
+//     }
+//     if (response.statusCode !== 200) {
+//         throw new Error(`Request failed with status ${response.statusCode}`);
+//     }
+
+//     // Extract the new cookie
+//     const setCookieHeader = response.headers["set-cookie"];
+//     if (!setCookieHeader) throw new Error("__Secure-1PSIDTS cookie not found");
+
+//     let new_1psidts = null;
+//     for (const cookieStr of Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader]) {
+//         const c = tough.Cookie.parse(cookieStr);
+//         if (c && c.key === "__Secure-1PSIDTS") {
+//             new_1psidts = c.value;
+//             break;
+//         }
+//     }
+//     if (!new_1psidts) throw new Error("__Secure-1PSIDTS cookie not found in response");
+
+//     // Cache the result
+//     await fs.promises.writeFile(filePath, new_1psidts);
+
+//     return new_1psidts;
+// }
+
 async function rotate1PSIDTS(cookies, proxy = null) {
     const tempDir = path.join(process.cwd(), "cookies");
-    await fs.promises.mkdir(tempDir, { recursive: true });
     const filename = `.cached_1psidts_${cookies.__Secure_1PSID}.txt`;
     const filePath = path.join(tempDir, filename);
+
+    // Create temp directory
+    await fs.promises.mkdir(tempDir, { recursive: true });
 
     // Check cache (60-second window)
     try {
@@ -55,22 +125,23 @@ async function rotate1PSIDTS(cookies, proxy = null) {
         throw new Error(`Request failed with status ${response.statusCode}`);
     }
 
-    const setCookie = response.headers["set-cookie"];
-    let new1psidts = null;
-    if (setCookie) {
-        const cookiesArr = Array.isArray(setCookie) ? setCookie : [setCookie];
-        for (const c of cookiesArr) {
-            if (c.startsWith("__Secure-1PSIDTS=")) {
-                new1psidts = c.split(";")[0].split("=")[1];
-                break;
-            }
+    const setCookieHeader = response.headers["set-cookie"];
+    if (!setCookieHeader) throw new Error("__Secure-1PSIDTS cookie not found");
+
+    let new_1psidts = null;
+    for (const cookieStr of Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader]) {
+        const c = tough.Cookie.parse(cookieStr);
+        if (c && c.key === "__Secure-1PSIDTS") {
+            new_1psidts = c.value;
+            break;
         }
     }
+    if (!new_1psidts) throw new Error("__Secure-1PSIDTS cookie not found in response");
 
-    if (new1psidts) {
-        await fs.promises.writeFile(filePath, new1psidts)
-        return new1psidts;
-    }
+    // Cache the result
+    await fs.promises.writeFile(filePath, new_1psidts);
+
+    return new_1psidts;
 }
 
 async function sendRequest(cookies, proxy = null) {
